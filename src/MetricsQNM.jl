@@ -42,4 +42,7 @@ include("dtilde.jl")
 include("newton.jl")
 export solve_qnm, reproduce_table1
 
+# ── SVD-based direct solver ──────────────────────────────────────────────────
+include("solve.jl")
+
 end
