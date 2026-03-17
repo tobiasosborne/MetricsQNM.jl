@@ -37,6 +37,7 @@ export METRICSSystem, assemble_system
 include("collocation.jl")
 include("galerkin.jl")
 include("dtilde.jl")
+include("factored_assembly.jl")
 
 # ── Newton-Raphson solver ────────────────────────────────────────────────────
 include("newton.jl")
