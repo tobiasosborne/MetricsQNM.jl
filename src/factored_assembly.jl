@@ -109,7 +109,7 @@ function build_factored_system(cfe::CompiledFieldEquations,
 
     # Quadrature grid (oversampled if Nquad > N)
     rgrid = RadialGrid(Nq, rp)
-    agrid = AngularGrid(Nq, m)
+    agrid = AngularGrid(Nq, m)  # uses Gauss-Legendre nodes
 
     # Basis values at quadrature points (truncated to N)
     # T_n for n=0..N at the Nq+1 quadrature z-nodes
@@ -133,9 +133,9 @@ function build_factored_system(cfe::CompiledFieldEquations,
         end
     end
 
-    # Chebyshev quadrature weights (Gauss-Chebyshev: equal weights π/(Nq+1))
-    w_z = fill(π / szq, szq)
-    w_χ = fill(π / szq, szq)  # approximate for Legendre (TODO: proper GL weights)
+    # Quadrature weights: Chebyshev for z, Gauss-Legendre for χ
+    w_z = fill(π / szq, szq)               # Gauss-Chebyshev
+    _, w_χ = _gauss_legendre(szq)           # Gauss-Legendre
 
     # ── Build D̃ via weighted Galerkin projection ─────────────────────────
     D0 = zeros(ComplexF64, 10bs, 6bs)
@@ -152,13 +152,13 @@ function build_factored_system(cfe::CompiledFieldEquations,
             C̃1 = (C̃s[2] - C̃s[3]) / 2
             C̃2 = (C̃s[2] + C̃s[3]) / 2 - C̃s[1]
 
-            w = w_z[i_r] * w_χ[i_χ]  # quadrature weight
+            w_val = w_z[i_r] * w_χ[i_χ]  # quadrature weight
 
             for (γ, C̃γ) in enumerate((C̃0, C̃1, C̃2))
                 Dγ = (D0, D1, D2)[γ]
                 _scatter_galerkin!(Dγ, C̃γ, h_map,
                     T_at_q, dT_at_q, d2T_at_q, rgrid, agrid,
-                    i_r, i_χ, N, Nq, am, bs, sz, szq, w)
+                    i_r, i_χ, N, Nq, am, bs, sz, szq, w_val)
             end
         end
     end

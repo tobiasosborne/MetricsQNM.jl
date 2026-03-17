@@ -65,10 +65,21 @@ struct AngularGrid
     d3P::Matrix{Float64}         # d³P_l^|m|/dχ³ at χ_i
 end
 
+"""
+Gauss-Legendre nodes and weights via Golub-Welsch (eigenvalues of Jacobi matrix).
+"""
+function _gauss_legendre(n::Int)
+    β = [k / sqrt(4k^2 - 1) for k in 1:n-1]
+    J = SymTridiagonal(zeros(n), β)
+    F = eigen(J)
+    perm = sortperm(F.values)
+    return F.values[perm], 2.0 * F.vectors[1, perm].^2
+end
+
 function AngularGrid(N::Int, m::Int)
     am = abs(m)
-    # Use Chebyshev-Gauss nodes for χ as well (interior points)
-    χ = [cos(π * (2k - 1) / (2 * (N + 1))) for k in 1:(N+1)]
+    # Use Gauss-Legendre nodes for proper P_l^m orthogonality
+    χ, _ = _gauss_legendre(N + 1)
 
     lmax = am + N
     P   = zeros(N + 1, N + 1)
