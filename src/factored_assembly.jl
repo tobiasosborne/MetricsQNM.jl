@@ -93,42 +93,72 @@ of ω, enabling efficient Newton-Raphson.
 """
 function build_factored_system(cfe::CompiledFieldEquations,
                                a::Float64, N::Int, m::Int;
-                               h_term_strings::Vector{String})
+                               h_term_strings::Vector{String},
+                               Nquad::Int=N  # quadrature oversampling: use Nquad+1 points
+                               )
     params = KerrParams(a, m)
     rp = r_plus(a)
     am = abs(m)
     sz = N + 1
     bs = sz^2
+    Nq = Nquad
+    szq = Nq + 1
+    bsq = szq^2
     n_h = length(h_term_strings)
     h_map = _parse_h_terms(h_term_strings)
 
-    # Grids
-    rgrid = RadialGrid(N, rp)
-    agrid = AngularGrid(N, m)
+    # Quadrature grid (oversampled if Nquad > N)
+    rgrid = RadialGrid(Nq, rp)
+    agrid = AngularGrid(Nq, m)
 
-    # ── Extract & transform coefficients at 3 ω values for separation ────
+    # Basis values at quadrature points (truncated to N)
+    # T_n for n=0..N at the Nq+1 quadrature z-nodes
+    rgrid_basis = RadialGrid(N, rp)  # just for T, dT, d2T at quadrature points
+    # Actually we need T_n(z_quadrature) for n=0..N — recompute at quadrature nodes
+    T_at_q = zeros(szq, sz)
+    dT_at_q = zeros(szq, sz)
+    d2T_at_q = zeros(szq, sz)
+    for (i, zi) in enumerate(rgrid.z)
+        T_at_q[i, 1] = 1.0; T_at_q[i, 2] = zi
+        dT_at_q[i, 1] = 0.0; dT_at_q[i, 2] = 1.0
+        for n in 2:N
+            T_at_q[i, n+1] = 2zi * T_at_q[i, n] - T_at_q[i, n-1]
+            dT_at_q[i, n+1] = 2T_at_q[i, n] + 2zi * dT_at_q[i, n] - dT_at_q[i, n-1]
+        end
+        for n in 0:N
+            z2m1 = 1 - zi^2
+            d2T_at_q[i, n+1] = abs(z2m1) > 1e-14 ?
+                (zi * dT_at_q[i, n+1] - n^2 * T_at_q[i, n+1]) / z2m1 :
+                n^2 * (n^2 - 1) / 3.0
+        end
+    end
+
+    # Chebyshev quadrature weights (Gauss-Chebyshev: equal weights π/(Nq+1))
+    w_z = fill(π / szq, szq)
+    w_χ = fill(π / szq, szq)  # approximate for Legendre (TODO: proper GL weights)
+
+    # ── Build D̃ via weighted Galerkin projection ─────────────────────────
     D0 = zeros(ComplexF64, 10bs, 6bs)
     D1 = zeros(ComplexF64, 10bs, 6bs)
     D2 = zeros(ComplexF64, 10bs, 6bs)
 
     for (i_r, r_i) in enumerate(rgrid.r)
         for (i_χ, χ_j) in enumerate(agrid.χ)
-            # Extract and transform at ω = 0, 1, -1
             C̃s = map([0.0+0im, 1.0+0im, -1.0+0im]) do ω_eval
                 C = extract_coefficients_complex(cfe, r_i, χ_j, ω_eval, a)
                 _transform_h_to_u(C, h_map, r_i, ω_eval, params)
             end
-
-            # ω-polynomial separation: C̃(ω) = C̃₀ + C̃₁ω + C̃₂ω²
             C̃0 = C̃s[1]
             C̃1 = (C̃s[2] - C̃s[3]) / 2
             C̃2 = (C̃s[2] + C̃s[3]) / 2 - C̃s[1]
 
-            # ── Contract with spectral basis to fill D̃_γ ─────────────
+            w = w_z[i_r] * w_χ[i_χ]  # quadrature weight
+
             for (γ, C̃γ) in enumerate((C̃0, C̃1, C̃2))
                 Dγ = (D0, D1, D2)[γ]
-                _scatter_collocation!(Dγ, C̃γ, h_map,
-                    rgrid, agrid, i_r, i_χ, N, am, bs, sz)
+                _scatter_galerkin!(Dγ, C̃γ, h_map,
+                    T_at_q, dT_at_q, d2T_at_q, rgrid, agrid,
+                    i_r, i_χ, N, Nq, am, bs, sz, szq, w)
             end
         end
     end
@@ -137,34 +167,45 @@ function build_factored_system(cfe::CompiledFieldEquations,
 end
 
 """
-Scatter one collocation point's contribution into D̃_γ.
-For each column (j₀, n₀, l₀), compute the u-derivative values at this point
-and contract with the coefficient matrix.
+Scatter one quadrature point's contribution into D̃_γ via Galerkin projection.
+Row (k, n, l) = equation k projected onto T_n(z) P_l(χ).
 """
-function _scatter_collocation!(Dγ, C̃γ, h_map,
-                               rgrid, agrid, i_r, i_χ, N, am, bs, sz)
-    for j₀ in 1:6, n₀ in 0:N, l₀ in am:(am + N)
-        col = (j₀ - 1) * bs + n₀ * sz + (l₀ - am) + 1
-        in_ = n₀ + 1
-        il_ = l₀ - am + 1
+function _scatter_galerkin!(Dγ, C̃γ, h_map,
+                            T_at_q, dT_at_q, d2T_at_q, rgrid, agrid,
+                            i_r, i_χ, N, Nq, am, bs, sz, szq, w)
+    # Column test functions (u-basis): loop over (j₀, n', l')
+    for j₀ in 1:6, n0 in 0:N, l0 in am:(am + N)
+        col = (j₀ - 1) * bs + n0 * sz + (l0 - am) + 1
+        in_ = n0 + 1
+        il_ = l0 - am + 1
 
-        # u-derivatives for test function T_{n₀}(z) P_{l₀}(χ)
+        # u-derivatives of T_{n'}(z) P_{l'}(χ) at this quadrature point
         hd = _h_derivatives(
-            rgrid.T[i_r, in_], rgrid.dT_dz[i_r, in_], rgrid.d2T_dz2[i_r, in_],
+            T_at_q[i_r, in_], dT_at_q[i_r, in_], d2T_at_q[i_r, in_],
             agrid.P[i_χ, il_], agrid.dP[i_χ, il_],
             agrid.d2P[i_χ, il_], agrid.d3P[i_χ, il_],
             rgrid.dz_dr[i_r], rgrid.d2z_dr2[i_r])
-        # Note: no A_k here — these are u-derivatives, not h-derivatives
 
-        for k in 1:10
-            row = (k - 1) * bs + (i_r - 1) * sz + i_χ
-            val = zero(ComplexF64)
-            @inbounds for d in eachindex(h_map)
-                j_d, α_d, β_d = h_map[d]
-                j_d == j₀ || continue
-                val += C̃γ[k, d] * _lookup_deriv(hd, α_d, β_d)
+        # Contract coefficients with derivatives
+        eq_vals = zeros(ComplexF64, 10)
+        @inbounds for d in eachindex(h_map)
+            j_d, α_d, β_d = h_map[d]
+            j_d == j₀ || continue
+            dv = _lookup_deriv(hd, α_d, β_d)
+            for k in 1:10
+                eq_vals[k] += C̃γ[k, d] * dv
             end
-            Dγ[row, col] += val
+        end
+
+        # Project onto row test functions T_n(z) P_l(χ) with quadrature weight
+        for n in 0:N, l in am:(am + N)
+            row = (0:9) .* bs .+ (n * sz + (l - am) + 1)
+            Tn_val = T_at_q[i_r, n + 1]
+            Pl_val = agrid.P[i_χ, l - am + 1]
+            wt = w * Tn_val * Pl_val
+            @inbounds for k in 1:10
+                Dγ[row[k], col] += wt * eq_vals[k]
+            end
         end
     end
 end

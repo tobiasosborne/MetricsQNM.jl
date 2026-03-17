@@ -38,6 +38,7 @@ include("collocation.jl")
 include("galerkin.jl")
 include("dtilde.jl")
 include("factored_assembly.jl")
+include("poly_extract.jl")
 
 # ── Newton-Raphson solver ────────────────────────────────────────────────────
 include("newton.jl")
