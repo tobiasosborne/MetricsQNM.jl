@@ -4,23 +4,30 @@
 
 Reproduce **Table I of arxiv:2312.08435** — fundamental (n=0, l=2, m=2) quasi-normal mode frequencies of Kerr black holes for spins a = 0.005 to 0.95 — using Julia + TensorGR.jl.
 
-## Current Status (2026-03-18)
+## Current Status (2026-03-18, session 3)
 
-**Symbolic G extraction pipeline is WRITTEN but UNTESTED.** The previous session crashed while waiting for the first full pipeline run to complete.
+**SVD compression QEP solver added. Symbolic G extraction runs but has a denominator-clearing bug.**
 
-### What happened in the crashed session
-1. **Numerical z-space extraction tried and abandoned** — `src/zspace_extract.jl` achieves |Δω|≈0.01 but stalls at N=12 (non-monotonic). Root cause: the (1+z)^{d_z} clearing factor destroys the outgoing-wave boundary condition at z=-1.
-2. **Symbolic pipeline written** — `src/symbolic_pipeline.jl` (392 lines) implements the full pipeline: substitute h-terms → clear denominators → expand → extract monomials → ω-decompose → r→z transform → assemble D̃.
-3. **Symbolics.jl performance researched deeply:**
-   - Direct `Add.dict`/`Mul.dict` tree walking: ~110ms per 1870-term polynomial (fastest)
-   - `Symbolics.polynomial_coeffs`: ~640ms (what the code currently uses)
-   - `Symbolics.coeff` per monomial: ~22.5s (unusable)
-4. **`_walk_expanded_poly` is written** in symbolic_pipeline.jl (lines 37-143) but `extract_G_exact` currently uses the slower `polynomial_coeffs` API instead. Switch to tree walking if speed is needed.
-5. **Session crashed** while waiting for `julia --threads=16 test/test_symbolic_pipeline.jl` to complete.
+### What happened in this session
+1. **SVD compression QEP solver written** — `src/rectangular_qep.jl` (149 lines), adapted from `af-tests/examples13` benchmarks. SVD compression + companion QZ for rectangular QEPs. **Verified**: 72/72 synthetic eigenvalues recovered at 5.4e-14 accuracy.
+2. **`reproduce_table1()` rewritten** in `newton.jl` to use the full pipeline: `build_system_symbolic` → `solve_qep_svd` → `solve_qep_newton`.
+3. **Tree-walker `_walk_expanded_poly` wired up** (replacing slow `polynomial_coeffs`). Extraction runs at 104 tasks/s (3.8s total for 400 tasks) instead of 0.9 tasks/s.
+4. **BLOCKER: Denominator clearing is insufficient.** The field equations contain rational subexpressions (Christoffel symbols with Σ, Δ denominators). `Symbolics.expand(coeff * denom)` does NOT distribute `denom` through rational subterms. Result: hundreds of `BasicSymbolicImpl{SymReal}` warnings = terms silently dropped. K₂ = 0 terms (no ω² contributions), making the QEP degenerate.
+
+### The denominator bug in detail
+- Field equations δR^μ_ν are **rational** in (r, χ) due to Christoffel symbol denominators (Σ², ΣΔ, etc.)
+- Extracting coefficient of h_i via substitution gives a rational function, not a polynomial
+- Multiplying by Σ^P Δ^Q (1-χ²)^S and calling `Symbolics.expand` doesn't cancel inner denominators
+- The "problematic terms" are full rational expressions like `(poly_num * r^6) / (Σ^5 * Δ * ...)` sitting in the Add.dict of the "expanded" expression
+- Both `polynomial_coeffs` and `_walk_expanded_poly` fail on these — they're not polynomials!
+
+### Fix attempted (partially)
+- Added `Symbolics.simplify_fractions(raw)` before `expand` — this should cancel the inner Σ/Δ factors against the clearing denom. **Not yet tested** — session ended before the run completed.
 
 ### Dead ends documented
 - **Numerical polynomial fitting** (Vandermonde, `poly_extract.jl`): unstable, ~2-6% error
 - **Numerical z-space extraction** (`zspace_extract.jl`): clearing factor destroys boundary conditions, caps at |Δω|≈0.01
+- **P=3, Q=1, S=1 clearing alone**: insufficient for these rational field equations
 
 ## What Works (16/23 issues closed)
 
@@ -64,39 +71,44 @@ Reproduce **Table I of arxiv:2312.08435** — fundamental (n=0, l=2, m=2) quasi-
 - **Cross-check**: collocation vs Galerkin agree to 1.5e-16
 - QEP companion linearization eigenvalue solver: finds approximate QNMs at |Δω| ≈ 0.02-0.06
 
-### 8. Newton-Raphson (STRUCTURE COMPLETE, NOT CONVERGING)
-- `src/newton.jl`: standard overdetermined pinv Newton
+### 8. SVD Compression QEP Solver (NEW, VERIFIED)
+- `src/rectangular_qep.jl`: SVD compression + companion QZ for rectangular QEPs
+- `solve_qep_svd(D0, D1, D2; ω₀, refine)`: finds ALL eigenvalues
+- `solve_qep_newton(D0, D1, D2, ω; max_iter)`: refines single eigenvalue via σ_min Newton
+- `qep_residual`, `validate_qep` for diagnostics
+- **Verified on synthetic 60×36 rectangular QEP**: 72/72 eigenvalues at 5.4e-14
+
+### 9. Newton-Raphson (STRUCTURE COMPLETE, NOT CONVERGING)
+- `src/newton.jl`: standard overdetermined pinv Newton + updated `reproduce_table1()`
 - `src/solve.jl`: per-step D̃ building variant
-- Diverges because D̃ matrices are not accurate enough (see blocker below)
+- Diverges because D̃ matrices are not accurate enough (see blocker)
 
-## THE PIPELINE: Symbolic G Coefficient Extraction
+## THE BLOCKER: Symbolic G Coefficient Extraction
 
-### What the code does (`src/symbolic_pipeline.jl`)
+### Current pipeline (`src/symbolic_pipeline.jl`)
 1. `compute_field_equations(2)` → 10 symbolic equations with ~1870 terms each
-2. Substitute h-terms to extract individual coefficients (~0.25s each)
-3. Multiply by `Σ^P Δ^Q (1-χ²)^S` denominator, expand → exact polynomial
-4. Substitute `a_s = a` (numeric)
-5. Extract all monomials via `polynomial_coeffs` (or tree walking)
-6. Decompose ω via the iu→i trick → G₀, G₁, G₂
-7. Transform r → z via binomial expansion
-8. Feed to `assembly.jl` → D̃₀, D̃₁, D̃₂
+2. For each (k, d): substitute h-terms to extract individual coefficient (~0.25s)
+3. Multiply by `Σ^P Δ^Q (1-χ²)^S`, call `simplify_fractions`, then `expand`
+4. Extract all monomials via `_walk_expanded_poly` (fast tree walker, 104 tasks/s)
+5. Decompose ω via the iu→i trick → G₀, G₁, G₂
+6. Transform r → z via binomial expansion
+7. Feed to `assembly.jl` → D̃₀, D̃₁, D̃₂
 
-### Denominator powers
-- `Σ³Δ¹`: most entries are exactly polynomial
-- Safe choice: `P=3, Q=1, S=1` handles everything
+### The problem
+Step 3 currently uses `Symbolics.simplify_fractions` to cancel inner Σ/Δ denominators. **This has not been tested yet.** If `simplify_fractions` is too slow or doesn't fully clear, alternatives:
+- Increase P, Q, S (try P=6, Q=3, S=2) — but `expand` alone won't distribute through divisions
+- Use `Symbolics.simplify_fractions` + `expand` (current approach, untested)
+- Switch strategy: use the **compiled evaluator** (galerkin.jl, 43μs/eval) + numerical Galerkin quadrature instead of symbolic extraction
 
-### After G extraction: the rest is straightforward
-1. **r → z transform**: `_r_to_z()` in symbolic_pipeline.jl, uses binomial expansion
-2. **Spectral projection**: `assembly.jl` already handles `PDECoefficients → D̃₀, D̃₁, D̃₂`
-3. **QEP eigenvalue**: companion linearization in `test_symbolic_pipeline.jl`
-4. **Newton-Raphson**: `newton.jl` implements the paper's algorithm with pinv
+### Alternative path: numerical Galerkin with compiled evaluator
+The compiled evaluator (`coefficients.jl`) + `separate_omega_dependence` already work perfectly (verified to 1e-16). The existing `build_factored_system` in `factored_assembly.jl` uses this path with Gauss-Legendre quadrature. This numerical approach avoids the symbolic denominator-clearing issue entirely. The question is whether quadrature accuracy is sufficient for Newton convergence.
 
 ## Next Steps
 
-1. **Run the test**: `julia --project=. --threads=auto test/test_symbolic_pipeline.jl`
-2. **Check convergence**: SVD study should show monotonic improvement with N
-3. **If too slow**: switch `extract_G_exact` from `polynomial_coeffs` to `_walk_expanded_poly` (already written)
-4. **If results correct**: Newton-Raphson refinement → Table I sweep
+1. **Test `simplify_fractions` fix**: `julia --project=. --threads=8 test/test_svd_qep.jl`
+   - Check: are warnings gone? Is K₂ nonzero? Do QEP eigenvalues converge?
+2. **If `simplify_fractions` is too slow**: try the compiled evaluator + numerical Galerkin path
+3. **If either works**: Newton-Raphson refinement → Table I sweep
 
 ## Key Technical Details
 
@@ -114,6 +126,9 @@ At `../TensorGR.jl`, actively developed. DO NOT edit. Use `symbolic_metric()`, `
 
 ### Compilation time
 First `compile_field_equations()` call: ~97 seconds. Subsequent D̃ builds: 2-60 seconds depending on N. Compiled function evaluation: ~43μs.
+
+### Threading
+Use `--threads=8` for Julia. More threads (e.g. 64) cause OpenBLAS contention and 37% slowdown.
 
 ## File Map
 
@@ -133,14 +148,16 @@ src/
   pipeline.jl            — numerical pipeline (FLAWED — use symbolic instead)
   poly_extract.jl        — numerical polynomial extraction (FLAWED)
   collocation.jl         — scaffolding
-  newton.jl              — solve_qnm (Newton-Raphson with pinv)
+  newton.jl              — solve_qnm + reproduce_table1 (uses SVD QEP)
   solve.jl               — solve_qnm_direct (per-step D̃ variant)
   symbolic_decompose.jl  — early symbolic extraction scaffold (superseded)
   zspace_extract.jl      — numerical z-space extraction (DEAD END)
-  symbolic_pipeline.jl   — symbolic G extraction pipeline (UNTESTED — run this next)
+  symbolic_pipeline.jl   — symbolic G extraction + tree walker + r→z transform
+  rectangular_qep.jl     — SVD compression QEP solver (NEW, VERIFIED)
 test/
   runtests.jl, test_kerr.jl, test_spectral.jl, test_leaver.jl — 605+ tests, all passing
   test_symbolic_pipeline.jl — full pipeline test with SVD convergence + QEP
+  test_svd_qep.jl           — SVD QEP end-to-end test (NEW)
   test_zspace.jl            — z-space tests (dead end)
 ```
 
@@ -148,4 +165,4 @@ test/
 
 `bd ready` shows unblocked work. `bd list` for full status. `bd graph --all` for dependencies. 16/23 closed.
 
-Critical path: **G extraction (symbolic)** → assembly → Newton → Table I.
+Critical path: **Fix denominator clearing** → G extraction → assembly → QEP → Newton → Table I.

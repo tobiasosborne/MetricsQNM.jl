@@ -75,24 +75,74 @@ function solve_qnm(sys::METRICSSystem, ω_guess::Number;
 end
 
 """
-    reproduce_table1(; N=30, m=2, tol=1e-7)
+    reproduce_table1(; N=12, m=2, spins=nothing, verbose=true)
 
-Reproduce Table I of arxiv:2312.08435 for all 11 spin values.
+Reproduce Table I of arxiv:2312.08435 using SVD compression QEP solver.
+For each spin value:
+1. Build D̃₀, D̃₁, D̃₂ via symbolic G extraction pipeline
+2. Solve rectangular QEP via SVD compression + companion QZ
+3. Find eigenvalue closest to Leaver reference
+4. Optionally refine with Newton on σ_min
 """
-function reproduce_table1(; N::Int=30, m::Int=2, tol::Float64=1e-7)
-    spins = [0.005, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
+function reproduce_table1(; N::Int=12, m::Int=2,
+                            spins::Union{Nothing,Vector{Float64}}=nothing,
+                            verbose::Bool=true)
+    if spins === nothing
+        spins = [0.005, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
+    end
     results = NamedTuple[]
 
     for a in spins
         ω_leaver = leaver_qnm(a; l=2, m=m, n=0)
-        ω_guess = round(ω_leaver, sigdigits=2)
+        verbose && println("a=$a: Leaver ω = $ω_leaver")
 
-        # TODO: assemble system and solve once assembly pipeline is complete
-        # sys = assemble_system(a, N, m)
-        # result_polar = solve_qnm(sys, ω_guess; parity=:polar, tol)
-        # result_axial = solve_qnm(sys, ω_guess; parity=:axial, tol)
+        # Build system via symbolic pipeline
+        t0 = time()
+        sys = build_system_symbolic(a, N, m; P=3, Q=1, S=1, verbose=false)
+        t_build = time() - t0
+        verbose && println("  Build: $(round(t_build, digits=1))s  size=$(size(sys.D0))")
 
-        push!(results, (a=a, ω_leaver=ω_leaver))
+        # Solve via SVD compression QEP
+        t0 = time()
+        eigs = solve_qep_svd(sys; ω₀=ω_leaver, refine=1)
+        t_solve = time() - t0
+
+        # Find closest physical eigenvalue (Im < 0, finite)
+        physical = filter(e -> isfinite(e) && imag(e) < 0 && abs(e) < 20, eigs)
+        if !isempty(physical)
+            dists = [abs(e - ω_leaver) for e in physical]
+            best_idx = argmin(dists)
+            ω_qep = physical[best_idx]
+            Δω = abs(ω_qep - ω_leaver)
+
+            # Newton refinement
+            ω_refined = solve_qep_newton(sys, ω_qep; max_iter=30)
+            Δω_refined = abs(ω_refined - ω_leaver)
+
+            verbose && println("  QEP:    ω = $(round(real(ω_qep),sigdigits=10)) + $(round(imag(ω_qep),sigdigits=10))i  |Δω|=$(round(Δω,sigdigits=4))")
+            verbose && println("  Newton: ω = $(round(real(ω_refined),sigdigits=10)) + $(round(imag(ω_refined),sigdigits=10))i  |Δω|=$(round(Δω_refined,sigdigits=4))")
+            verbose && println("  Solve: $(round(t_solve, digits=2))s")
+
+            push!(results, (a=a, ω_leaver=ω_leaver, ω_qep=ω_qep, ω_refined=ω_refined,
+                           Δω_qep=Δω, Δω_refined=Δω_refined, t_build=t_build, t_solve=t_solve))
+        else
+            verbose && println("  No physical eigenvalues found!")
+            push!(results, (a=a, ω_leaver=ω_leaver, ω_qep=NaN+NaN*im, ω_refined=NaN+NaN*im,
+                           Δω_qep=NaN, Δω_refined=NaN, t_build=t_build, t_solve=t_solve))
+        end
     end
+
+    if verbose
+        println("\n" * "=" ^ 70)
+        println("SUMMARY — Table I reproduction (N=$N)")
+        println("=" ^ 70)
+        @printf("  %-6s  %-28s  %-12s  %-12s\n", "a", "ω_METRICS", "|Δω| QEP", "|Δω| Newton")
+        println("  " * "-" ^ 64)
+        for r in results
+            @printf("  %-6.3f  %+.8f %+.8fi  %.4e  %.4e\n",
+                    r.a, real(r.ω_refined), imag(r.ω_refined), r.Δω_qep, r.Δω_refined)
+        end
+    end
+
     return results
 end

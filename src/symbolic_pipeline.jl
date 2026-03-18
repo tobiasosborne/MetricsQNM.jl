@@ -91,35 +91,45 @@ function _walk_expanded_poly(expr_num::Num, var_syms::Vector)
                 idx = get(var_idx, base, 0)
                 if idx > 0 && exp_val isa Number
                     exps[idx] = Int(exp_val)
-                else
-                    # Factor is not one of our variables — must be numeric or compound
-                    # For compound Pow nodes: extract base and exponent
-                    if SymbolicUtils.ispow(base) && exp_val isa Number
-                        pargs = SymbolicUtils.arguments(base)
-                        pb, pe = pargs[1], pargs[2]
-                        pidx = get(var_idx, pb, 0)
-                        if pidx > 0 && pe isa Number
-                            exps[pidx] = Int(pe * exp_val)
-                        end
-                    elseif SymbolicUtils.issym(base)
-                        bidx = get(var_idx, base, 0)
-                        if bidx > 0
-                            exps[bidx] = Int(exp_val)
-                        end
+                elseif base isa Number
+                    # Numeric base left over from substitution — fold into coefficient
+                    coeff *= Float64(base)^Float64(exp_val)
+                elseif SymbolicUtils.ispow(base) && exp_val isa Number
+                    pargs = SymbolicUtils.arguments(base)
+                    pb, pe = pargs[1], pargs[2]
+                    pidx = get(var_idx, pb, 0)
+                    if pidx > 0 && pe isa Number
+                        exps[pidx] = Int(pe * exp_val)
+                    else
+                        # Numeric pow — fold into coefficient
+                        try; coeff *= Float64(pb)^Float64(pe * exp_val)
+                        catch; @warn "Unhandled pow base in Mul: $base ^ $exp_val"; end
                     end
+                elseif SymbolicUtils.issym(base)
+                    bidx = get(var_idx, base, 0)
+                    if bidx > 0
+                        exps[bidx] = Int(exp_val)
+                    end
+                else
+                    # Last resort: try numeric conversion
+                    try; coeff *= Float64(base)^Float64(exp_val)
+                    catch; @warn "Unhandled factor in Mul: $(typeof(base)) ^ $exp_val"; end
                 end
             end
             add_term!(NTuple{n,Int}(exps), coeff)
             return
         end
 
-        # Fallback: treat as constant
+        # Fallback: treat as constant — try multiple conversion paths
         try
-            val = Float64(Symbolics.value(Num(term)))
-            add_term!(NTuple{n,Int}(exps), multiplier * val)
-        catch
-            @warn "Could not parse term: $(typeof(term))"
-        end
+            add_term!(NTuple{n,Int}(exps), multiplier * Float64(term))
+            return
+        catch; end
+        try
+            add_term!(NTuple{n,Int}(exps), multiplier * Float64(Symbolics.value(Num(term))))
+            return
+        catch; end
+        @warn "Could not parse term: $(typeof(term))"
     end
 
     # Main dispatch
@@ -283,6 +293,8 @@ function extract_G_exact(a::Float64; P::Int=3, Q::Int=1, S::Int=1,
     n_threads = Threads.nthreads()
     verbose && println("  Using $n_threads threads for $n_tasks tasks...")
 
+    done_count = Threads.Atomic{Int}(0)
+
     Threads.@threads for idx in 1:n_tasks
         k, d = tasks[idx]
         ht = h_terms[d]
@@ -294,23 +306,30 @@ function extract_G_exact(a::Float64; P::Int=3, Q::Int=1, S::Int=1,
         coeff = Symbolics.substitute(eqs[k], sub)
         if isequal(coeff, Num(0))
             task_results[idx] = local_results
+            Threads.atomic_add!(done_count, 1)
+            dc = done_count[]
+            if verbose && (dc % 25 == 0 || dc == n_tasks)
+                elapsed = time() - t_start
+                rate = dc / elapsed
+                eta = (n_tasks - dc) / max(rate, 0.01)
+                println("    [$dc/$n_tasks] $(round(elapsed,digits=1))s elapsed, ~$(round(eta,digits=0))s remaining ($(round(rate,digits=1)) tasks/s)")
+                flush(stdout)
+            end
             continue
         end
 
-        # Multiply by denominator and expand
-        cleared = Symbolics.expand(coeff * denom)
+        # Substitute a_s, simplify fractions (cancel Σ/Δ denominators), then expand
+        # The field equations are rational in r,χ — simplify_fractions clears inner
+        # denominators that expand() alone cannot handle.
+        raw = Symbolics.substitute(coeff * denom, Dict(a_s => a))
+        cleared_num = Symbolics.expand(Symbolics.simplify_fractions(raw))
 
-        # Substitute a_s = a
-        cleared_num = Symbolics.substitute(cleared, Dict(a_s => a))
-
-        # Extract ALL monomial coefficients via polynomial_coeffs
-        coeffs_dict, _ = Symbolics.polynomial_coeffs(cleared_num, var_list)
+        # Extract ALL monomial coefficients via fast tree walking (~6x faster than polynomial_coeffs)
+        mono_coeffs = _walk_expanded_poly(cleared_num, var_list)
 
         j_d, α_d, β_d = h_map[d]
 
-        for (mono_sym, coeff_sym) in coeffs_dict
-            exps = ntuple(i -> Symbolics.degree(mono_sym, var_list[i]), 5)
-            coeff_val = Float64(Symbolics.value(coeff_sym))
+        for (exps, coeff_val) in mono_coeffs
             abs(coeff_val) < 1e-15 && continue
 
             δ, σ, p_ω, q_ω, s_iu = exps
@@ -325,6 +344,16 @@ function extract_G_exact(a::Float64; P::Int=3, Q::Int=1, S::Int=1,
             end
         end
         task_results[idx] = local_results
+
+        Threads.atomic_add!(done_count, 1)
+        dc = done_count[]
+        if verbose && (dc % 25 == 0 || dc == n_tasks)
+            elapsed = time() - t_start
+            rate = dc / elapsed
+            eta = (n_tasks - dc) / max(rate, 0.01)
+            println("    [$dc/$n_tasks] $(round(elapsed,digits=1))s elapsed, ~$(round(eta,digits=0))s remaining ($(round(rate,digits=1)) tasks/s)")
+            flush(stdout)
+        end
     end
 
     # Merge results into Ks

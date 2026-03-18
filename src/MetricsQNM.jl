@@ -2,6 +2,7 @@ module MetricsQNM
 
 using LinearAlgebra
 using SparseArrays
+using Printf
 
 # ── Kerr background ──────────────────────────────────────────────────────────
 include("kerr.jl")
@@ -50,5 +51,8 @@ export solve_qnm, reproduce_table1
 
 # ── SVD-based direct solver ──────────────────────────────────────────────────
 include("solve.jl")
+
+# ── Rectangular QEP solver (SVD compression + companion QZ) ─────────────────
+include("rectangular_qep.jl")
 
 end
