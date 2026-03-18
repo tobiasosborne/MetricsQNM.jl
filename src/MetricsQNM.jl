@@ -41,6 +41,8 @@ include("factored_assembly.jl")
 include("poly_extract.jl")
 include("pipeline.jl")
 include("symbolic_decompose.jl")
+include("zspace_extract.jl")
+include("symbolic_pipeline.jl")
 
 # ── Newton-Raphson solver ────────────────────────────────────────────────────
 include("newton.jl")

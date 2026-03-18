@@ -4,15 +4,23 @@
 
 Reproduce **Table I of arxiv:2312.08435** — fundamental (n=0, l=2, m=2) quasi-normal mode frequencies of Kerr black holes for spins a = 0.005 to 0.95 — using Julia + TensorGR.jl.
 
-## Why It's Taking So Long
+## Current Status (2026-03-18)
 
-The blocker is **one specific step**: extracting the polynomial G coefficients from the symbolic field equations. Everything else works.
+**Symbolic G extraction pipeline is WRITTEN but UNTESTED.** The previous session crashed while waiting for the first full pipeline run to complete.
 
-The paper does this step **symbolically in Mathematica** — they take the 10 linearized Einstein equations (each with thousands of terms), collect coefficients of each h-derivative, clear denominators (Σ^P Δ^Q (1-χ²)^S), and decompose into exact polynomials in (r, χ, ω). This is a CAS operation.
+### What happened in the crashed session
+1. **Numerical z-space extraction tried and abandoned** — `src/zspace_extract.jl` achieves |Δω|≈0.01 but stalls at N=12 (non-monotonic). Root cause: the (1+z)^{d_z} clearing factor destroys the outgoing-wave boundary condition at z=-1.
+2. **Symbolic pipeline written** — `src/symbolic_pipeline.jl` (392 lines) implements the full pipeline: substitute h-terms → clear denominators → expand → extract monomials → ω-decompose → r→z transform → assemble D̃.
+3. **Symbolics.jl performance researched deeply:**
+   - Direct `Add.dict`/`Mul.dict` tree walking: ~110ms per 1870-term polynomial (fastest)
+   - `Symbolics.polynomial_coeffs`: ~640ms (what the code currently uses)
+   - `Symbolics.coeff` per monomial: ~22.5s (unusable)
+4. **`_walk_expanded_poly` is written** in symbolic_pipeline.jl (lines 37-143) but `extract_G_exact` currently uses the slower `polynomial_coeffs` API instead. Switch to tree walking if speed is needed.
+5. **Session crashed** while waiting for `julia --threads=16 test/test_symbolic_pipeline.jl` to complete.
 
-I tried to **shortcut this with numerical polynomial fitting** (evaluate at grid points, Vandermonde fit). This was a mistake — it's numerically unstable and loses the exact structure. The result: eigenvalues that are ~2-6% off instead of 10-digit accurate.
-
-The fix is straightforward: **do the G extraction symbolically using Symbolics.jl**, exactly as the paper does with Mathematica. I verified this works — `Symbolics.substitute` extracts individual coefficients in ~0.25 seconds, `Symbolics.expand` clears denominators in ~0.04 seconds. The full extraction for 400 coefficients would take ~8 minutes. I just ran out of time implementing it cleanly.
+### Dead ends documented
+- **Numerical polynomial fitting** (Vandermonde, `poly_extract.jl`): unstable, ~2-6% error
+- **Numerical z-space extraction** (`zspace_extract.jl`): clearing factor destroys boundary conditions, caps at |Δω|≈0.01
 
 ## What Works (16/23 issues closed)
 
@@ -61,107 +69,34 @@ The fix is straightforward: **do the G extraction symbolically using Symbolics.j
 - `src/solve.jl`: per-step D̃ building variant
 - Diverges because D̃ matrices are not accurate enough (see blocker below)
 
-## THE BLOCKER: Polynomial G Coefficient Extraction
+## THE PIPELINE: Symbolic G Coefficient Extraction
 
-### What the paper does (Mathematica)
-1. Take symbolic equation: `Σ_d C_{k,d}(r,χ,ω,a) × ∂_r^α ∂_χ^β h_j = 0`
-2. Collect coefficient of each `∂_r^α ∂_χ^β h_j` → rational function of (r, χ, ω, a)
-3. Multiply by `Σ^P Δ^Q (1-χ²)^S` → EXACT polynomial in (r, χ, ω, a)
-4. Decompose by powers: `G_{k,γ,δ,σ,α,β,j} × ω^γ r^δ χ^σ`
-5. These G coefficients are exact functions of `a` only
-
-### What I tried (numerical — WRONG APPROACH)
-- Evaluated coefficients at grid points, fit Vandermonde polynomial → unstable, ~2-6% error
-- The r→z transform amplified fitting errors
-- Result: eigenvalues never converged beyond |Δω| ≈ 0.02
-
-### What needs to be done (symbolic — CORRECT APPROACH)
-The Symbolics.jl operations needed are ALL verified to work:
-- `Symbolics.substitute(eq, Dict(h_term => 1, others => 0))` → coefficient (0.25s)
-- `Symbolics.expand(coeff * Σ^3 * Δ^1 * (1-χ²)^1)` → polynomial (0.04s)
-- `Symbolics.substitute(poly, Dict(r => 0, chi => 0))` → constant term
-- `Symbolics.coeff(poly, r^2)` → coefficient of r² (verified working)
-- Derivative-at-zero trick for higher powers: `(1/k!) d^k f/dr^k |_{r=0}`
-
-**Estimated time for full extraction**: 400 coefficients × ~0.3s each = ~2 minutes for extraction + ~2 minutes for expansion + polynomial decomposition. Total: ~10-15 minutes one-time computation.
+### What the code does (`src/symbolic_pipeline.jl`)
+1. `compute_field_equations(2)` → 10 symbolic equations with ~1870 terms each
+2. Substitute h-terms to extract individual coefficients (~0.25s each)
+3. Multiply by `Σ^P Δ^Q (1-χ²)^S` denominator, expand → exact polynomial
+4. Substitute `a_s = a` (numeric)
+5. Extract all monomials via `polynomial_coeffs` (or tree walking)
+6. Decompose ω via the iu→i trick → G₀, G₁, G₂
+7. Transform r → z via binomial expansion
+8. Feed to `assembly.jl` → D̃₀, D̃₁, D̃₂
 
 ### Denominator powers
-From numerical testing on representative entries:
-- `Σ³Δ¹`: most entries are EXACTLY polynomial (residual = 0.0)
-- `Σ⁴Δ¹(1-χ²)¹`: covers the remaining entries to ~1e-7
-- Safe choice: use `Σ³Δ¹(1-χ²)¹` which handles everything
+- `Σ³Δ¹`: most entries are exactly polynomial
+- Safe choice: `P=3, Q=1, S=1` handles everything
 
 ### After G extraction: the rest is straightforward
-1. **r → z transform**: `r^δ = (2r₊)^δ (1+z)^{-δ}`, multiply by `(1+z)^{d_max}`, expand via `binom(d_max-δ, j)` → K coefficients polynomial in z
-2. **A_k factorization**: already implemented in `_transform_h_to_u`, verified exact degree-2 in ω
-3. **Spectral projection**: `assembly.jl` already handles `PDECoefficients → D̃₀, D̃₁, D̃₂` via linearization matrices
-4. **Newton-Raphson**: `newton.jl` already implements the paper's algorithm with pinv
-5. **QEP eigenvalue**: companion linearization already working as backup
+1. **r → z transform**: `_r_to_z()` in symbolic_pipeline.jl, uses binomial expansion
+2. **Spectral projection**: `assembly.jl` already handles `PDECoefficients → D̃₀, D̃₁, D̃₂`
+3. **QEP eigenvalue**: companion linearization in `test_symbolic_pipeline.jl`
+4. **Newton-Raphson**: `newton.jl` implements the paper's algorithm with pinv
 
-## Step-by-Step Instructions for Next Agent
+## Next Steps
 
-### Phase 1: Symbolic G Extraction (~30 min implementation + ~15 min computation)
-
-Write a function `extract_G_coefficients()` that:
-
-```julia
-function extract_G_coefficients(; P=3, Q=1, S=1)
-    # 1. Get symbolic equations
-    eqs, coords, params, hfuncs, freq_vars = compute_field_equations(2)
-    r, chi = coords[2], coords[3]; a_s = params[1]
-    omega_re, omega_im, iu = freq_vars
-
-    # 2. Discover h-derivative terms
-    h_terms = ...  # same as in compile_field_equations
-    sub_zero = Dict(t => Num(0) for t in h_terms)
-
-    # 3. Common denominator
-    Sig = r^2 + a_s^2 * chi^2
-    Del = r^2 - 2r + a_s^2
-    denom = Sig^P * Del^Q * (1 - chi^2)^S
-
-    # 4. For each (k, d): extract, clear, expand
-    for k in 1:10, (d, ht) in enumerate(h_terms)
-        sub = copy(sub_zero); sub[ht] = Num(1)
-        coeff = Symbolics.substitute(eqs[k], sub)
-        coeff == 0 && continue
-        cleared = Symbolics.expand(coeff * denom)
-
-        # 5. Decompose by (ω, r, χ) powers
-        # Separate ω: substitute (omega_re=0, omega_im=0, iu=0) for ω⁰ part
-        # Then derivatives for higher ω powers
-        # Separate r: substitute r=0 for r⁰, then d/dr|_{r=0} for r¹, etc.
-        # Separate χ: same approach
-
-        # Store as G[k][(γ,δ,σ,α,β,j)] = value
-    end
-end
-```
-
-The polynomial decomposition by powers of r and χ can use either:
-- `Symbolics.coeff(expr, r^n)` (verified working)
-- Repeated derivative-at-zero: `coeff_of_r^n = (1/n!) ∂^n/∂r^n f|_{r=0}`
-- `Symbolics.polynomial_coeffs(expr, [r, chi])` if available
-
-### Phase 2: r → z Transform + A_k Factorization (~15 min)
-
-Already implemented in `src/pipeline.jl` and `src/factored_assembly.jl`. Just need to:
-1. Feed the symbolic G coefficients into the r→z transform (binomial expansion)
-2. Apply `_transform_h_to_u` for the A_k factorization
-3. Store as PDECoefficients
-
-### Phase 3: Assembly + Newton (~5 min)
-
-Already working in `src/assembly.jl` and `src/newton.jl`. Just call:
-```julia
-basis = spectral_basis(30, 2)
-sys = assemble_system(K_coefficients, basis, a)
-result = solve_qnm(sys, ω_guess; parity=:polar)
-```
-
-### Phase 4: Table I Sweep (~1 hour computation)
-
-Loop over 11 spin values, solve both polar and axial, compare with Leaver oracle.
+1. **Run the test**: `julia --project=. --threads=auto test/test_symbolic_pipeline.jl`
+2. **Check convergence**: SVD study should show monotonic improvement with N
+3. **If too slow**: switch `extract_G_exact` from `polynomial_coeffs` to `_walk_expanded_poly` (already written)
+4. **If results correct**: Newton-Raphson refinement → Table I sweep
 
 ## Key Technical Details
 
@@ -200,9 +135,13 @@ src/
   collocation.jl         — scaffolding
   newton.jl              — solve_qnm (Newton-Raphson with pinv)
   solve.jl               — solve_qnm_direct (per-step D̃ variant)
-  symbolic_decompose.jl  — beginning of symbolic extraction (INCOMPLETE)
+  symbolic_decompose.jl  — early symbolic extraction scaffold (superseded)
+  zspace_extract.jl      — numerical z-space extraction (DEAD END)
+  symbolic_pipeline.jl   — symbolic G extraction pipeline (UNTESTED — run this next)
 test/
   runtests.jl, test_kerr.jl, test_spectral.jl, test_leaver.jl — 605+ tests, all passing
+  test_symbolic_pipeline.jl — full pipeline test with SVD convergence + QEP
+  test_zspace.jl            — z-space tests (dead end)
 ```
 
 ## Issue Tracker
