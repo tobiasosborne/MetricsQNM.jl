@@ -53,7 +53,7 @@ function chebyshev_basis(N::Int)
     end
 
     # Build higher powers by repeated multiplication: z^δ = Z1 * z^{δ-1}
-    max_delta = 12  # enough for any practical PDE
+    max_delta = 25  # enough for bespoke extraction with high clearing powers
     Zs = Vector{SparseMatrixCSC{Float64,Int}}(undef, max_delta + 1)
     Zs[1] = sparse(I, N + 1, N + 1)  # z^0 = identity
     Zs[2] = Z1
@@ -135,7 +135,7 @@ function legendre_basis(N::Int, m::Int)
     end
 
     # Higher powers by repeated multiplication
-    max_sigma = 12
+    max_sigma = 25
     Xs = Vector{SparseMatrixCSC{Float64,Int}}(undef, max_sigma + 1)
     Xs[1] = sparse(I, sz, sz)
     Xs[2] = X1

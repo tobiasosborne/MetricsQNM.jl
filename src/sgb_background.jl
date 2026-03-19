@@ -1,0 +1,500 @@
+# sGB background data: Mathematica BoxData parser + evaluation.
+# Parses supplementary materials from arxiv:2406.11986 to extract
+# H₁-H₄(r,χ,a), ϑ(r,χ,a), Ω_H⁽¹⁾(a), κ⁽¹⁾(a).
+
+export SGBBackground, sgb_background, sgb_H_derivs, sgb_H_params
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Mathematica expression parser (recursive descent)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+function _nb_skip_ws(s::String, i::Int)
+    n = ncodeunits(s)
+    @inbounds while i <= n
+        c = s[i]
+        if c == ' ' || c == '\t' || c == '\n' || c == '\r'
+            i += 1
+        elseif c == '\\' && i + 1 <= n && (s[i+1] == '\n' || s[i+1] == '\r')
+            # Line continuation: backslash + newline
+            i += 2
+        else
+            break
+        end
+    end
+    i
+end
+
+"""
+    _nb_parse(s, i) → (ast, new_i)
+
+Parse one Mathematica expression from byte position `i`.
+Returns nested Julia data:
+  - String: atoms (identifiers, string contents, numbers)
+  - Vector{Any}: lists `{...}`
+  - Tuple{String, Vector{Any}}: function calls `f[...]`
+"""
+function _nb_parse(s::String, i::Int)
+    i = _nb_skip_ws(s, i)
+    n = ncodeunits(s)
+    i > n && error("Unexpected end at $i")
+    c = s[i]
+
+    if c == '"'
+        # String literal — scan to closing quote, skip \-escapes
+        j = i + 1
+        while j <= n
+            s[j] == '\\' && (j += 2; continue)
+            s[j] == '"' && break
+            j += 1
+        end
+        # Strip embedded line continuations (\+newline+spaces)
+        raw = s[i+1:j-1]
+        raw = replace(raw, r"\\\n\s*" => "")
+        return raw, j + 1
+
+    elseif c == '{'
+        # List
+        elems = Any[]
+        j = i + 1
+        while true
+            j = _nb_skip_ws(s, j)
+            j > n && error("Unterminated list at $i")
+            s[j] == '}' && return elems, j + 1
+            s[j] == ',' && (j += 1; continue)
+            j_before = j
+            e, j = _nb_parse(s, j)
+            j == j_before && (j += 1; continue)  # safety: skip stuck chars
+            # Skip Rule (->)
+            jj = _nb_skip_ws(s, j)
+            if jj + 1 <= n && s[jj] == '-' && s[jj+1] == '>'
+                _, j = _nb_parse(s, jj + 2)
+                continue
+            end
+            e isa String && isempty(e) && continue  # skip empty atoms
+            push!(elems, e)
+        end
+
+    elseif isdigit(c) || c == '.'
+        j = i
+        while j <= n
+            if isdigit(s[j]) || s[j] == '.'
+                j += 1
+            elseif s[j] == '\\' && j + 1 <= n && (s[j+1] == '\n' || s[j+1] == '\r')
+                j += 2  # skip line continuation within numbers
+                while j <= n && (s[j] == '\n' || s[j] == '\r' || s[j] == ' '); j += 1; end
+            else
+                break
+            end
+        end
+        # Mathematica scientific: *^N
+        if j + 1 <= n && s[j] == '*' && s[j+1] == '^'
+            j += 2
+            (j <= n && s[j] == '-') && (j += 1)
+            while j <= n && isdigit(s[j]); j += 1; end
+        end
+        # Build number string, stripping embedded whitespace/continuations
+        num = replace(s[i:j-1], r"\\?\s+" => "")
+        return num, j
+
+    elseif c == '-'
+        # Negative number or standalone minus
+        if i + 1 <= n && (isdigit(s[i+1]) || s[i+1] == '.')
+            j = i + 1
+            while j <= n && (isdigit(s[j]) || s[j] == '.'); j += 1; end
+            return s[i:j-1], j
+        else
+            return "-", i + 1
+        end
+
+    elseif isletter(c) || c == '$' || c == '\\'
+        j = i
+        if c == '\\' && i + 1 <= n && s[i+1] == '['
+            close = findnext(']', s, i + 2)
+            close === nothing && error("Unterminated \\[...] at $i")
+            j = close + 1
+        elseif c == '\\'
+            # Bare backslash not followed by [ — skip it
+            return "", i + 1
+        else
+            while j <= n && (isletter(s[j]) || isdigit(s[j]) || s[j] == '_' || s[j] == '$')
+                j += 1
+            end
+        end
+        name = s[i:j-1]
+        jj = _nb_skip_ws(s, j)
+        if jj <= n && s[jj] == '['
+            # Function call
+            args = Any[]
+            j = jj + 1
+            while true
+                j = _nb_skip_ws(s, j)
+                j > n && error("Unterminated call to $name at $i")
+                s[j] == ']' && return (name, args), j + 1
+                s[j] == ',' && (j += 1; continue)
+                j_before = j
+                a, j = _nb_parse(s, j)
+                j == j_before && (j += 1; continue)  # safety: skip stuck chars
+                jjj = _nb_skip_ws(s, j)
+                if jjj + 1 <= n && s[jjj] == '-' && s[jjj+1] == '>'
+                    _, j = _nb_parse(s, jjj + 2)
+                    continue
+                end
+                a isa String && isempty(a) && continue  # skip empty atoms
+                push!(args, a)
+            end
+        else
+            return name, j
+        end
+    else
+        return string(c), i + 1
+    end
+end
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  BoxData AST → Julia expression string
+# ═══════════════════════════════════════════════════════════════════════════════
+
+"""Convert integer string to safe Julia literal (avoid Int64 overflow for large numbers)."""
+function _nb_numstr(s::String)::String
+    # Strip line continuations and whitespace that may have leaked through
+    s = replace(s, r"\\?\s+" => "")
+    isempty(s) && return "0"
+    neg = startswith(s, '-')
+    digits = neg ? s[2:end] : s
+    '.' in digits && return s
+    length(digits) <= 15 && return s
+    return string(parse(Float64, s))
+end
+
+"""Convert parsed BoxData AST to a Julia expression string."""
+function _box_to_str(ast)::String
+    if ast isa String
+        s = ast
+        # Operators — handled in _rowbox_to_str, but as fallback:
+        s == " " && return " * "
+        s == "+" && return " + "
+        s == "-" && return " - "
+        s == "(" && return "("
+        s == ")" && return ")"
+        s in (";", "=") && return ""
+        # Variables
+        s == "\\[Chi]" && return "_χ_"
+        s == "\\[Alpha]" && return "_α_"
+        s == "M" && return "_M_"
+        s == "r" && return "_r_"
+        s == "a" && return "_a_"
+        # LHS names (skip — we only convert RHS)
+        s in ("\\[Phi]", "\\[CapitalPhi]", "\\[CapitalOmega]", "\\[Kappa]",
+              "H1", "H2", "H3", "H4") && return ""
+        # Number
+        if !isempty(s) && (isdigit(s[1]) || (length(s) > 1 && s[1] == '-' && isdigit(s[2])))
+            return _nb_numstr(s)
+        end
+        return s
+
+    elseif ast isa Tuple
+        name::String, args::Vector = ast
+        name == "RowBox"        && return _rowbox_to_str(args[1]::Vector)
+        name == "FractionBox"   && return "(($(  _box_to_str(args[1]))) / ($(_box_to_str(args[2]))))"
+        name == "SuperscriptBox" && return "(($(_box_to_str(args[1])))^($(_box_to_str(args[2]))))"
+        name in ("FormBox", "StyleBox", "BoxData", "TextData") && return _box_to_str(args[1])
+        name == "SubscriptBox" && return ""
+        !isempty(args) && return _box_to_str(args[1])
+        return ""
+
+    elseif ast isa Vector
+        return join(_box_to_str.(ast))
+    end
+    return ""
+end
+
+"""Convert a RowBox element list to Julia expression string with implicit multiplication."""
+function _rowbox_to_str(elems::Vector)::String
+    tokens = Tuple{Symbol, String}[]
+    for e in elems
+        if e isa String
+            e == " "  && (push!(tokens, (:mul, " * ")); continue)
+            e == "+"  && (push!(tokens, (:add, " + ")); continue)
+            e == "-"  && (push!(tokens, (:add, " - ")); continue)
+            e == "("  && (push!(tokens, (:lp,  "("));   continue)
+            e == ")"  && (push!(tokens, (:rp,  ")"));   continue)
+            e in (";", "=") && continue
+        end
+        s = _box_to_str(e)
+        isempty(s) || push!(tokens, (:val, s))
+    end
+    # Insert implicit multiplication: val*val, val*(, )*val, )*(
+    parts = String[]
+    for (i, (typ, s)) in enumerate(tokens)
+        if i > 1
+            pt = tokens[i-1][1]
+            if (pt == :val && typ in (:val, :lp)) ||
+               (pt == :rp  && typ in (:val, :lp))
+                push!(parts, " * ")
+            end
+        end
+        push!(parts, s)
+    end
+    join(parts)
+end
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Navigate AST to find expression after "="
+# ═══════════════════════════════════════════════════════════════════════════════
+
+function _find_rhs(ast)
+    if ast isa Tuple
+        name, args = ast
+        if name == "RowBox" && !isempty(args) && args[1] isa Vector
+            elems = args[1]::Vector
+            for i in eachindex(elems)
+                if elems[i] isa String && elems[i] == "=" && i < length(elems)
+                    for j in (i+1):length(elems)
+                        elems[j] isa String && elems[j] == ";" && continue
+                        return elems[j]
+                    end
+                end
+            end
+            for elem in elems
+                r = _find_rhs(elem)
+                r !== nothing && return r
+            end
+        elseif name in ("Cell", "BoxData", "FormBox", "StyleBox")
+            for arg in args
+                r = _find_rhs(arg)
+                r !== nothing && return r
+            end
+        end
+    elseif ast isa Vector
+        for elem in ast
+            r = _find_rhs(elem)
+            r !== nothing && return r
+        end
+    end
+    nothing
+end
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Notebook section extraction
+# ═══════════════════════════════════════════════════════════════════════════════
+
+const _NB_FILE = joinpath(@__DIR__, "..", "reference", "2406.11986_source",
+                          "Supplementary_materials.nb")
+
+# Search patterns: variable name → string to search in notebook
+const _NB_SECTIONS = [
+    ("Phi",      "\\[Phi]"),
+    ("H1",       "\"H1\""),
+    ("H2",       "\"H2\""),
+    ("H3",       "\"H3\""),
+    ("H4",       "\"H4\""),
+    ("OmegaH1",  "\\[CapitalOmega]"),
+    ("kappa1",   "\\[Kappa]"),
+]
+
+"""Find the byte position of `Cell[BoxData[` before position `pos`."""
+function _find_cell_start(text::String, pos::Int)
+    target = "Cell[BoxData["
+    for i in pos:-1:1
+        if i + length(target) - 1 <= ncodeunits(text) &&
+           text[i:i+length(target)-1] == target
+            return i
+        end
+    end
+    error("Cannot find Cell[BoxData[ before position $pos")
+end
+
+"""
+Find the Input cell containing a given pattern AND an "=" sign.
+Skips Section header cells (which don't contain "=").
+"""
+function _find_input_cell(text::String, pattern::String; from::Int=1)
+    pos = findnext(pattern, text, from)
+    pos === nothing && error("Pattern '$pattern' not found in notebook")
+    start_byte = first(pos)
+
+    cell_start = _find_cell_start(text, start_byte)
+
+    # Find end of this cell (next "Cell[" or end of file)
+    next_cell = findnext("Cell[", text, cell_start + 5)
+    cell_end = next_cell === nothing ? length(text) : first(next_cell)
+
+    # Check if "=" exists within THIS cell
+    eq_pos = findnext("\"=\"", text, cell_start)
+    if eq_pos !== nothing && first(eq_pos) < cell_end
+        return cell_start
+    end
+    # No "=" in this cell → skip to next occurrence
+    return _find_input_cell(text, pattern; from=last(pos)+1)
+end
+
+"""Load and parse all sGB background sections from the Mathematica notebook."""
+function _load_nb_sections(; verbose::Bool=false)
+    isfile(_NB_FILE) || error("Notebook not found: $_NB_FILE\n" *
+        "Place the supplementary materials from arxiv:2406.11986 at this path.")
+    verbose && (println("Reading notebook..."); flush(stdout))
+    text = read(_NB_FILE, String)
+
+    sections = Dict{String, Any}()
+    for (name, pattern) in _NB_SECTIONS
+        verbose && (print("  Parsing $name... "); flush(stdout))
+        t0 = time()
+
+        cell_start = _find_input_cell(text, pattern)
+        ast, _ = _nb_parse(text, cell_start)
+        rhs = _find_rhs(ast)
+        rhs === nothing && error("Could not find '=' in section $name")
+        sections[name] = rhs
+
+        verbose && (@printf("%.2fs\n", time() - t0); flush(stdout))
+    end
+    sections
+end
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Compile AST to Julia function
+# ═══════════════════════════════════════════════════════════════════════════════
+
+"""Compile a BoxData AST to a Julia function (_r_, _χ_, _a_, _M_, _α_) → Float64."""
+function _ast_to_func(ast)
+    expr_str = _box_to_str(ast)
+    expr_str = strip(expr_str)
+    isempty(expr_str) && error("Empty expression after BoxData conversion")
+    body = Meta.parse(expr_str)
+    @eval (_r_::Number, _χ_::Number, _a_::Number, _M_::Number, _α_::Number) -> Float64($body)
+end
+
+"""Compile a BoxData AST to a scalar function (_a_, _M_, _α_) → Float64."""
+function _ast_to_scalar_func(ast)
+    expr_str = _box_to_str(ast)
+    expr_str = strip(expr_str)
+    body = Meta.parse(expr_str)
+    @eval (_a_::Number, _M_::Number, _α_::Number) -> Float64($body)
+end
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Cache + data container
+# ═══════════════════════════════════════════════════════════════════════════════
+
+struct _SGBData
+    H_funcs::NTuple{4, Function}
+    Phi_func::Function
+    OmegaH1_func::Function
+    kappa1_func::Function
+end
+
+const _SGB_CACHE = Ref{Union{Nothing, _SGBData}}(nothing)
+
+function _load_sgb_data(; verbose::Bool=false)
+    _SGB_CACHE[] !== nothing && return _SGB_CACHE[]
+
+    verbose && (println("Loading sGB background data..."); flush(stdout))
+    t0 = time()
+    sections = _load_nb_sections(; verbose)
+
+    verbose && (print("  Compiling functions... "); flush(stdout))
+    tc = time()
+    H_funcs = ntuple(i -> _ast_to_func(sections["H$(i)"]), 4)
+    Phi_func = _ast_to_func(sections["Phi"])
+    OmegaH1_func = _ast_to_scalar_func(sections["OmegaH1"])
+    kappa1_func = _ast_to_scalar_func(sections["kappa1"])
+    verbose && (@printf("%.2fs\n", time() - tc); flush(stdout))
+
+    data = _SGBData(H_funcs, Phi_func, OmegaH1_func, kappa1_func)
+    _SGB_CACHE[] = data
+    verbose && @printf("  Total load: %.1fs\n", time() - t0)
+    data
+end
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Public API
+# ═══════════════════════════════════════════════════════════════════════════════
+
+"""
+    SGBBackground
+
+sGB background correction data evaluated at dimensionless spin `a` with M=1.
+"""
+struct SGBBackground
+    H::NTuple{4, Function}    # H[i](r, χ) → Float64
+    vartheta::Function         # ϑ(r, χ) → Float64
+    Omega_H1::Float64          # Ω_H⁽¹⁾ at this spin
+    kappa1::Float64            # κ⁽¹⁾ at this spin
+    a::Float64
+end
+
+"""
+    sgb_background(a; verbose=false) → SGBBackground
+
+Load sGB background corrections from the Mathematica supplementary materials
+of arxiv:2406.11986, evaluated at spin `a` with M=1, α=1.
+
+The α factor is absorbed into the coupling constant ζ = α²/M⁴.
+H₁-H₄ and ϑ are returned as closures `(r, χ) → Float64`.
+"""
+function sgb_background(a::Float64; verbose::Bool=false)
+    data = _load_sgb_data(; verbose)
+
+    H = ntuple(4) do i
+        f = data.H_funcs[i]
+        (r, χ) -> Base.invokelatest(f, r, χ, a, 1.0, 1.0)
+    end
+
+    vartheta = let f = data.Phi_func
+        (r, χ) -> Base.invokelatest(f, r, χ, a, 1.0, 1.0)
+    end
+
+    Omega_H1 = Base.invokelatest(data.OmegaH1_func, a, 1.0, 1.0)
+    kappa1 = Base.invokelatest(data.kappa1_func, a, 1.0, 1.0)
+
+    verbose && @printf("  sGB background at a=%.4f: Ω_H⁽¹⁾=%.6e, κ⁽¹⁾=%.6e\n",
+                       a, Omega_H1, kappa1)
+
+    SGBBackground(H, vartheta, Omega_H1, kappa1, a)
+end
+
+"""
+    sgb_H_derivs(bg, i, r, χ; ε=1e-5)
+
+Evaluate H_i and all its derivatives at (r, χ) via central finite differences.
+
+Returns a NamedTuple (val, dr, dchi, drr, dchichi, drchi) matching the
+ordering of the abstract H_i parameters in sgb_linearize.jl.
+"""
+function sgb_H_derivs(bg::SGBBackground, i::Int, r::Float64, χ::Float64;
+                       ε::Float64=1e-5)
+    f = bg.H[i]
+    val = f(r, χ)
+    # First derivatives (central difference)
+    dr   = (f(r + ε, χ) - f(r - ε, χ)) / (2ε)
+    dchi = (f(r, χ + ε) - f(r, χ - ε)) / (2ε)
+    # Second derivatives
+    drr     = (f(r + ε, χ) - 2val + f(r - ε, χ)) / ε^2
+    dchichi = (f(r, χ + ε) - 2val + f(r, χ - ε)) / ε^2
+    drchi   = (f(r + ε, χ + ε) - f(r + ε, χ - ε) - f(r - ε, χ + ε) + f(r - ε, χ - ε)) / (4ε^2)
+    return (val=val, dr=dr, dchi=dchi, drr=drr, dchichi=dchichi, drchi=drchi)
+end
+
+"""
+    sgb_H_params(bg, r, χ; ε=1e-5)
+
+Evaluate all 24 H_i parameters at (r, χ) for the compiled sGB correction evaluator.
+
+Returns a length-24 Float64 vector in the order:
+    [H1, H1_r, H1_χ, H1_rr, H1_χχ, H1_rχ, H2, ..., H4_rχ]
+"""
+function sgb_H_params(bg::SGBBackground, r::Float64, χ::Float64;
+                       ε::Float64=1e-5)
+    params = Vector{Float64}(undef, 24)
+    for i in 1:4
+        d = sgb_H_derivs(bg, i, r, χ; ε)
+        offset = (i - 1) * 6
+        params[offset + 1] = d.val
+        params[offset + 2] = d.dr
+        params[offset + 3] = d.dchi
+        params[offset + 4] = d.drr
+        params[offset + 5] = d.dchichi
+        params[offset + 6] = d.drchi
+    end
+    params
+end

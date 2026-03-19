@@ -48,11 +48,16 @@ function solve_qnm(sys::METRICSSystem, ω_guess::Number;
         end
 
         if residual_norm < tol
+            # Compute Jacobian at converged point for perturbation theory
+            J_v = D[:, free_idx]
+            J_ω = Dtilde_deriv(sys, ω) * v
+            J = hcat(J_v, J_ω)
             return (ω = ω,
                     v = v,
                     iterations = iter,
                     residual = residual_norm,
-                    residual_ratio = residual_norm / residual_initial)
+                    residual_ratio = residual_norm / residual_initial,
+                    J = J, free_idx = free_idx, pinned_idx = pinned_idx)
         end
 
         # Jacobian: [∂f/∂v_free | ∂f/∂ω]
@@ -70,8 +75,13 @@ function solve_qnm(sys::METRICSSystem, ω_guess::Number;
     res = norm(Dtilde(sys, ω) * v)
 
     @warn "Newton-Raphson did not converge" iterations=maxiter residual=res
+    D = Dtilde(sys, ω)
+    J_v = D[:, free_idx]
+    J_ω = Dtilde_deriv(sys, ω) * v
+    J = hcat(J_v, J_ω)
     return (ω = ω, v = v, iterations = maxiter,
-            residual = res, residual_ratio = res / residual_initial)
+            residual = res, residual_ratio = res / residual_initial,
+            J = J, free_idx = free_idx, pinned_idx = pinned_idx)
 end
 
 """

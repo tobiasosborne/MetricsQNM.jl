@@ -43,6 +43,7 @@ include("poly_extract.jl")
 include("pipeline.jl")
 include("symbolic_decompose.jl")
 include("zspace_extract.jl")
+include("sparse_poly.jl")
 include("symbolic_pipeline.jl")
 
 # ── Newton-Raphson solver ────────────────────────────────────────────────────
@@ -54,5 +55,14 @@ include("solve.jl")
 
 # ── Rectangular QEP solver (SVD compression + companion QZ) ─────────────────
 include("rectangular_qep.jl")
+
+# ── sGB background corrections ──────────────────────────────────────────────
+include("sgb_background.jl")
+
+# ── sGB linearization (modified background metric → D̃⁽¹⁾) ─────────────────
+include("sgb_linearize.jl")
+
+# ── sGB eigenvalue perturbation solver ──────────────────────────────────────
+include("sgb_perturbation.jl")
 
 end
