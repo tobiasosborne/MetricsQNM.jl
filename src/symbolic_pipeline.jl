@@ -373,8 +373,214 @@ function extract_G_exact(a::Float64; P::Int=3, Q::Int=1, S::Int=1,
 end
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  Full pipeline
+#  Bespoke extraction via SparsePoly (replaces simplify_fractions pipeline)
 # ═══════════════════════════════════════════════════════════════════════════════
+
+export extract_G_bespoke, build_system_bespoke, normalize_system!
+
+"""
+    extract_G_bespoke(a; P=3, Q=1, S=1, verbose=false) → (K₀, K₁, K₂)
+
+Extract polynomial G coefficients using the bespoke SparsePoly CAS.
+Single-pass tree walk with structural denominator tracking — no
+simplify_fractions, no expand, no GCD computation.
+
+Returns three PDECoefficients in r-space for ω⁰, ω¹, ω² terms.
+"""
+function extract_G_bespoke(a::Float64; P::Int=3, Q::Int=1, S::Int=1,
+                            verbose::Bool=false)
+    verbose && (println("  Computing field equations..."); flush(stdout))
+    eqs, coords, params, hfuncs, freq_vars = compute_field_equations(2)
+    r, chi = coords[2], coords[3]
+    a_s = params[1]
+    omega_re, omega_im, iu_sym = freq_vars
+
+    # Discover h-derivative terms
+    all_vars = Set{Any}()
+    for eq in eqs, v in Symbolics.get_variables(eq)
+        any(occursin("h$j", string(v)) for j in 1:6) && push!(all_vars, v)
+    end
+    h_terms = sort(collect(all_vars), by=string)
+    h_map = _parse_h_terms(string.(h_terms))
+    sub_zero = Dict{Any,Any}(t => Num(0) for t in h_terms)
+    n_h = length(h_terms)
+    n_eqs = length(eqs)
+
+    var_list = Num[r, chi, omega_re, omega_im, iu_sym]
+    ctx = SymToPolyCtx(var_list, a)
+
+    verbose && (println("  Extracting $n_h × $n_eqs = $(n_h * n_eqs) coefficients via SparsePoly..."); flush(stdout))
+
+    # Result: three PDECoefficients for ω⁰, ω¹, ω²
+    Ks = [PDECoefficients([Dict{NTuple{6,Int}, ComplexF64}() for _ in 1:10],
+                          fill(30, 10), fill(20, 10)) for _ in 1:3]
+
+    t_start = time()
+    tasks = [(k, d) for k in 1:n_eqs for d in 1:n_h]
+    n_tasks = length(tasks)
+
+    task_results = Vector{Vector{Tuple{Int,Int,Int,Int,Int,Int,ComplexF64,ComplexF64,ComplexF64}}}(undef, n_tasks)
+
+    done_count = Threads.Atomic{Int}(0)
+
+    # Pass 1: convert all tasks to RatPoly (serial — Symbolics is not thread-safe)
+    ratpolys = Vector{Union{Nothing, RatPoly}}(undef, n_tasks)
+
+    for idx in 1:n_tasks
+        k, d = tasks[idx]
+        sub = copy(sub_zero)
+        sub[h_terms[d]] = Num(1)
+        coeff = Symbolics.substitute(eqs[k], sub)
+        if isequal(coeff, Num(0))
+            ratpolys[idx] = nothing
+            continue
+        end
+        coeff_a = Symbolics.substitute(coeff, Dict(a_s => a))
+        ratpolys[idx] = symexpr_to_poly(coeff_a, ctx)
+    end
+
+    n_nonzero = count(!isnothing, ratpolys)
+    verbose && (println("  $n_nonzero non-zero tasks, per-task clearing (P≥$P, Q≥$Q, S≥$S)"); flush(stdout))
+
+    # Pass 2: reduce + per-task clear + extract monomials (threaded)
+    Threads.@threads for idx in 1:n_tasks
+        k, d = tasks[idx]
+        local_results = Tuple{Int,Int,Int,Int,Int,Int,ComplexF64,ComplexF64,ComplexF64}[]
+
+        rp = ratpolys[idx]
+        if rp === nothing
+            task_results[idx] = local_results
+            Threads.atomic_add!(done_count, 1)
+            continue
+        end
+
+        # Per-task: reduce (cancel common factors) then clear to minimum
+        poly, _ = clear_denominators(rp, P, Q, S, ctx)
+        mono_coeffs = poly.terms
+
+        j_d, α_d, β_d = h_map[d]
+
+        for (exps, coeff_val) in mono_coeffs
+            abs(coeff_val) < 1e-15 && continue
+
+            δ, σ, p_ω, q_ω, s_iu = exps
+            G0, G1, G2 = _omega_monomial_to_G(p_ω, q_ω, s_iu, coeff_val)
+
+            for (γ, Gval) in enumerate((G0, G1, G2))
+                abs(Gval) < 1e-15 && continue
+                push!(local_results, (k, j_d, α_d, β_d, δ, σ,
+                      γ == 1 ? Gval : 0.0im,
+                      γ == 2 ? Gval : 0.0im,
+                      γ == 3 ? Gval : 0.0im))
+            end
+        end
+        task_results[idx] = local_results
+
+        Threads.atomic_add!(done_count, 1)
+        dc = done_count[]
+        if verbose && (dc % 50 == 0 || dc == n_tasks)
+            elapsed = time() - t_start
+            @printf("    [%d/%d] %.1fs elapsed (%.1f tasks/s)\n", dc, n_tasks, elapsed, dc/elapsed)
+            flush(stdout)
+        end
+    end
+
+    # Merge results into Ks
+    for idx in 1:n_tasks
+        for (k, j_d, α_d, β_d, δ, σ, g0, g1, g2) in task_results[idx]
+            for (γ, Gval) in enumerate((g0, g1, g2))
+                abs(Gval) < 1e-15 && continue
+                key = (γ - 1, δ, σ, α_d, β_d, j_d)
+                Ks[γ].equations[k][key] =
+                    get(Ks[γ].equations[k], key, 0.0im) + Gval
+            end
+        end
+    end
+
+    verbose && (println("  Total extraction: $(round(time() - t_start, digits=1))s"); flush(stdout))
+    return Ks[1], Ks[2], Ks[3]
+end
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Per-equation normalization
+# ═══════════════════════════════════════════════════════════════════════════════
+
+"""
+    normalize_system!(sys::METRICSSystem)
+
+Per-equation normalization: for each of the 10 field equations, scale the
+corresponding rows of D₀, D₁, D₂ so the largest coefficient has modulus 1.
+Mandatory for numerical stability (cf. arxiv:2312.08435, lines 491-492).
+"""
+function normalize_system!(sys::METRICSSystem)
+    N = sys.N
+    bs = (N + 1)^2
+    for k in 1:10
+        rows = ((k-1)*bs+1):(k*bs)
+        scale = max(
+            maximum(abs, view(sys.D0, rows, :); init=0.0),
+            maximum(abs, view(sys.D1, rows, :); init=0.0),
+            maximum(abs, view(sys.D2, rows, :); init=0.0)
+        )
+        if scale > 0
+            sys.D0[rows,:] ./= scale
+            sys.D1[rows,:] ./= scale
+            sys.D2[rows,:] ./= scale
+        end
+    end
+    sys
+end
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Full pipelines
+# ═══════════════════════════════════════════════════════════════════════════════
+
+"""
+    build_system_bespoke(a, N, m; P=3, Q=1, S=1, verbose=false) → METRICSSystem
+
+Build D̃₀, D̃₁, D̃₂ via bespoke SparsePoly G extraction + r→z transform + assembly.
+Fast: ~5s total for extraction (vs minutes with simplify_fractions).
+"""
+function build_system_bespoke(a::Float64, N::Int, m::Int;
+                               P::Int=3, Q::Int=1, S::Int=1,
+                               verbose::Bool=false)
+    rp = r_plus(a)
+
+    verbose && (println("Extracting G coefficients (bespoke)..."); flush(stdout))
+    K0_r, K1_r, K2_r = extract_G_bespoke(a; P, Q, S, verbose)
+
+    if verbose
+        for (name, K) in [("K0", K0_r), ("K1", K1_r), ("K2", K2_r)]
+            n = sum(length(d) for d in K.equations)
+            println("  $name: $n terms (r-space)")
+        end
+        flush(stdout)
+    end
+
+    d_max = 0
+    for K in (K0_r, K1_r, K2_r), k in 1:10
+        for ((γ, δ, σ, α, β, j), _) in K.equations[k]
+            d_max = max(d_max, δ)
+        end
+    end
+    verbose && (println("  Max r-degree: $d_max"); flush(stdout))
+
+    verbose && (println("Transforming r → z (d_max=$d_max)..."); flush(stdout))
+    K0_z = _r_to_z(K0_r, rp, d_max)
+    K1_z = _r_to_z(K1_r, rp, d_max)
+    K2_z = _r_to_z(K2_r, rp, d_max)
+
+    verbose && (println("Assembling D̃ matrices (N=$N)..."); flush(stdout))
+    basis = spectral_basis(N, m)
+    D0 = assemble_system(K0_z, basis, a).D0
+    D1 = assemble_system(K1_z, basis, a).D0
+    D2 = assemble_system(K2_z, basis, a).D0
+
+    sys = METRICSSystem(D0, D1, D2, N, m, a)
+    normalize_system!(sys)
+    verbose && (println("  Per-equation normalization applied"); flush(stdout))
+    sys
+end
 
 """
     build_system_symbolic(a, N, m; P=3, Q=1, S=1, verbose=false) → METRICSSystem

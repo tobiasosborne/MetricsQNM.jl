@@ -16,7 +16,8 @@ Find ALL eigenvalues of the rectangular QEP D̃(ω)v = 0 via SVD compression.
 3. Companion linearization → 2n×2n generalized eigenvalue problem → QZ
 4. Optionally refine by re-projecting at a found eigenvalue.
 """
-function solve_qep_svd(sys::METRICSSystem; ω₀::Number=0.0, refine::Int=1)
+function solve_qep_svd(sys::METRICSSystem; ω₀::Number=0.0, refine::Int=1, normalize::Bool=true)
+    normalize && normalize_system!(sys)
     solve_qep_svd(sys.D0, sys.D1, sys.D2; ω₀, refine)
 end
 
