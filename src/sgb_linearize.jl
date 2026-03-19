@@ -15,6 +15,7 @@ using TensorGR: symbolic_metric, symbolic_christoffel, sym_deriv
 
 export compute_sgb_correction_equations, compile_sgb_correction
 export extract_sgb_coefficients, extract_sgb_coefficients_complex, separate_sgb_omega
+export build_sgb_correction_system
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Abstract H_i symbolic variables
@@ -332,10 +333,10 @@ Each callable takes a single vector argument:
 Returns CompiledSGBCorrection.
 """
 function compile_sgb_correction(m_mode::Int; verbose::Bool=false)
-    eqs, coords, params, aparams, ωvars, Hp = compute_sgb_correction_equations(m_mode; verbose)
+    eqs, coords, params, _hfuncs, ωvars, Hp = compute_sgb_correction_equations(m_mode; verbose)
 
     rv, cv = coords[2], coords[3]
-    a_s = aparams[1]
+    a_s = params[1]   # spin parameter from kerr_symbolic_metric (was: aparams[1] = hfuncs bug)
     omega_re, omega_im, iu_sym = ωvars
 
     # Discover h-derivative variables
@@ -405,7 +406,7 @@ function extract_sgb_coefficients(csc::CompiledSGBCorrection,
         args[31:end] .= 0.0
         args[30 + d] = 1.0
         for k in 1:10
-            C[k, d] = csc.fns[k](args)
+            C[k, d] = Base.invokelatest(csc.fns[k], args)
         end
     end
     return C
@@ -449,81 +450,132 @@ end
 # ═══════════════════════════════════════════════════════════════════════════════
 
 """
-    build_sgb_correction_system(a, N, m, bg; verbose=false)
+    build_sgb_correction_system(a, N, m, bg, ω0; csc=nothing, verbose=false)
 
-Build the D̃⁽¹⁾ correction matrices for sGB gravity at spin `a`.
+Build the D̃⁽¹⁾ correction matrix for sGB gravity at spin `a` and GR
+eigenfrequency `ω0`.
 
-Uses the same collocation approach as the GR D̃ builder:
-1. Compile the sGB correction equations (cached after first call)
-2. At each collocation point, evaluate H_i and derivatives from sgb_background
-3. Extract PDE coefficients using the iu-polynomial trick
-4. Assemble D̃₀⁽¹⁾, D̃₁⁽¹⁾, D̃₂⁽¹⁾ via spectral interpolation
+Algorithm:
+1. At each Chebyshev collocation point, evaluate H_i params from sgb_background
+2. Extract PDE correction coefficients via the compiled sGB evaluator (iu trick)
+3. For each spectral test function (j, n, l), compute h-derivative values
+4. Accumulate into collocation D̃⁽¹⁾, then Vandermonde-transform to spectral basis
 
-Returns a METRICSSystem containing the correction matrices.
+Returns a METRICSSystem where D0 = D̃⁽¹⁾(ω₀), D1 = D2 = 0. The perturbation
+solver only needs D̃⁽¹⁾ at the GR eigenfrequency, so ω-separation is unnecessary.
 """
 function build_sgb_correction_system(a::Float64, N::Int, m::Int,
-                                      bg::SGBBackground;
+                                      bg::SGBBackground, ω0::ComplexF64;
+                                      csc::Union{Nothing, CompiledSGBCorrection}=nothing,
                                       verbose::Bool=false)
     # Step 1: Get compiled correction evaluator
-    verbose && (println("Compiling sGB correction..."); flush(stdout))
-    t0 = time()
-    csc = compile_sgb_correction(m; verbose)
-    verbose && (@printf("  Compiled: %.1fs\n", time() - t0); flush(stdout))
-
-    # Step 2: Build the GR system for spectral infrastructure
-    verbose && (println("Building GR system for reference..."); flush(stdout))
-    t0 = time()
-    sys_gr = build_system_bespoke(a, N, m; verbose=false)
-    verbose && (@printf("  GR system: %.1fs\n", time() - t0); flush(stdout))
-
-    # Step 3: Use the GR compiled field equations to get h-derivative ordering
-    # The GR evaluator in coefficients.jl uses the same h-derivative variables
-    verbose && (println("Building correction D̃ via collocation..."); flush(stdout))
-    t0 = time()
-
-    # Get collocation infrastructure from the GR system
-    cfe = compile_field_equations(m)
-    basis = spectral_basis(N, m)
-    bs = (N + 1)^2
-
-    # Collocation points
-    r_plus = r_plus_val = 1.0 + sqrt(1.0 - a^2)
-    z_nodes = basis.radial.nodes   # Chebyshev nodes in z ∈ [-1, 1]
-    χ_nodes = basis.angular.nodes  # Legendre nodes
-
-    n_r = length(z_nodes)
-    n_χ = length(χ_nodes)
-    n_eq = 10
-    n_fields = 6
-    n_v = n_fields * bs
-
-    # Initialize D̃⁽¹⁾ matrices (10·n_r·n_χ × 6·bs)
-    n_rows = n_eq * n_r * n_χ
-    D0_corr = zeros(ComplexF64, n_rows, n_v)
-    D1_corr = zeros(ComplexF64, n_rows, n_v)
-    D2_corr = zeros(ComplexF64, n_rows, n_v)
-
-    # For each collocation point, evaluate the correction equations
-    # using the iu-polynomial trick (same as galerkin.jl)
-    for (j_r, z) in enumerate(z_nodes)
-        r_val = r_of_z(z, r_plus_val)
-        for (j_χ, χ_val) in enumerate(χ_nodes)
-            # H_i params at this point
-            h_params = sgb_H_params(bg, r_val, χ_val)
-
-            # Extract coefficients of each h-derivative term
-            # using the compiled correction evaluator
-            row_base = ((j_r - 1) * n_χ + (j_χ - 1)) * n_eq
-
-            # For each h-derivative variable, evaluate correction at unit perturbation
-            # This requires knowing which h-derivative maps to which spectral coefficient
-            # TODO: wire up the full collocation assembly
-            # For now, this is a placeholder structure
-        end
+    if csc === nothing
+        verbose && (println("Compiling sGB correction..."); flush(stdout))
+        t0 = time()
+        csc = compile_sgb_correction(m; verbose)
+        verbose && (@printf("  Compiled: %.1fs\n", time() - t0); flush(stdout))
     end
 
-    verbose && (@printf("  Collocation: %.1fs\n", time() - t0); flush(stdout))
+    params = KerrParams(a, m)
+    rp = r_plus(a)
+    am = abs(m)
+    bs = (N + 1)^2
+    n_h = csc.n_h
+    n_eq = 10
+    n_fields = 6
 
-    # Return correction system
-    METRICSSystem(D0_corr, D1_corr, D2_corr, N, m, a)
+    # Parse h-derivative ordering from the sGB correction evaluator
+    h_map = parse_h_term_map(csc.h_deriv_names)
+
+    # Step 2: Chebyshev collocation nodes for both z and χ
+    # z-clamp: the outer boundary z → -1 (r → ∞) causes the asymptotic factor
+    # A_j ~ exp(Im(iω)·r) to overflow.  Clamp z_min to keep r manageable.
+    # At z = -0.99, r ≈ 2r+/0.01 ≈ 400, and exp(0.09·400) ≈ 3e15 — OK.
+    z_nodes = [cos(π * k / N) for k in 0:N]
+    χ_nodes = [cos(π * k / N) for k in 0:N]
+    z_nodes = clamp.(z_nodes, -0.99, 0.9999)
+    χ_nodes = clamp.(χ_nodes, -0.9999, 0.9999)
+    n_z = length(z_nodes)
+    n_χ = length(χ_nodes)
+
+    # Step 3: Build Vandermonde matrix V: spectral coefficients → point values
+    # V[(iz-1)*n_χ + iχ, nl_index(n,l)] = T_n(z_iz) × P_l^m(χ_iχ)
+    verbose && (print("Building Vandermonde matrix... "); flush(stdout))
+    t0 = time()
+    V = zeros(Float64, bs, bs)
+    for (iz, z_i) in enumerate(z_nodes)
+        Tv, _ = _chebyshev_vals(z_i, N)
+        for (iχ, χ_j) in enumerate(χ_nodes)
+            Pv, _ = _legendre_vals(χ_j, N, m)
+            row_pt = (iz - 1) * n_χ + iχ
+            for n in 0:N
+                for l in am:(am + N)
+                    col_sp = nl_index(n, l, N, m)
+                    V[row_pt, col_sp] = Tv[n + 1] * Pv[l - am + 1]
+                end
+            end
+        end
+    end
+    V_lu = lu(V)
+    verbose && (@printf("cond=%.1e  %.1fs\n", cond(V), time() - t0); flush(stdout))
+
+    # Step 4: Build D̃⁽¹⁾ in collocation space
+    verbose && (@printf("Building D̃⁽¹⁾ via collocation (%d×%d grid, %d h-derivs)...\n",
+                        n_z, n_χ, n_h); flush(stdout))
+    t0_coll = time()
+    D_coll = zeros(ComplexF64, n_eq * bs, n_fields * bs)
+
+    for (iz, z_i) in enumerate(z_nodes)
+        r_i = r_of_z(z_i, rp)
+        for (iχ, χ_j) in enumerate(χ_nodes)
+            pt_num = (iz - 1) * n_χ + iχ
+            verbose && (@printf("\r  Point %d/%d (r=%.3f, χ=%.4f)... ",
+                                pt_num, bs, r_i, χ_j); flush(stdout))
+
+            # H_i parameters at this collocation point
+            hp = sgb_H_params(bg, r_i, χ_j)
+
+            # Correction coefficients at ω₀ (complex, via iu trick): 10 × n_h
+            C = extract_sgb_coefficients_complex(csc, r_i, χ_j, ω0, a, hp)
+
+            pt_idx = pt_num  # 1-based row within each equation block
+
+            # For each spectral test function (j₀, n₀, l₀):
+            for j₀ in 1:n_fields
+                for n₀ in 0:N
+                    for l₀ in am:(am + N)
+                        col = (j₀ - 1) * bs + nl_index(n₀, l₀, N, m)
+
+                        # h-derivative values for this test function at this point
+                        hvals = _test_function_derivs(j₀, n₀, l₀, r_i, χ_j,
+                                                       ω0, params, N, m, h_map)
+
+                        # contribution[k] = Σ_d C[k,d] * hvals[d]  (no conjugation)
+                        contribution = C * hvals
+
+                        for k in 1:n_eq
+                            row = (k - 1) * bs + pt_idx
+                            D_coll[row, col] = contribution[k]
+                        end
+                    end
+                end
+            end
+        end
+    end
+    verbose && (@printf("\n  Collocation: %.1fs\n", time() - t0_coll); flush(stdout))
+
+    # Step 5: Transform from collocation to spectral basis
+    # D_spectral = (I_eq ⊗ V⁻¹) · D_coll
+    verbose && (print("  Vandermonde transform... "); flush(stdout))
+    t0_tr = time()
+    D_corr = zeros(ComplexF64, n_eq * bs, n_fields * bs)
+    for k in 1:n_eq
+        rows = ((k - 1) * bs + 1):(k * bs)
+        D_corr[rows, :] = V_lu \ D_coll[rows, :]
+    end
+    verbose && (@printf("%.1fs\n", time() - t0_tr); flush(stdout))
+
+    # Return as METRICSSystem: D0 = D̃⁽¹⁾(ω₀), D1 = D2 = 0
+    Z = zeros(ComplexF64, n_eq * bs, n_fields * bs)
+    METRICSSystem(D_corr, copy(Z), copy(Z), N, m, a)
 end

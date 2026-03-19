@@ -152,9 +152,20 @@ function _test_function_derivs(j, n, l, r, χ, ω, params, N, m, h_term_map)
     d3u_rχχ = dT_n * dz * d2P_l
     d3h_rχχ = dA * d2u_χχ + A * d3u_rχχ
 
-    # ∂³u/∂χ³: need d³P/dχ³, skip for now (compute numerically if needed)
-    # ∂³P/dχ³ via recurrence from d²P/dχ²... complex. Use finite differences if needed.
-    d3P_l = 0.0  # placeholder
+    # ∂³P/dχ³ via finite difference on d²P/dχ²
+    ε_fd = 1e-5
+    if abs(1 - χ^2) > 2ε_fd
+        Pv_p, dPv_p = _legendre_vals(χ + ε_fd, N, m)
+        Pv_m, dPv_m = _legendre_vals(χ - ε_fd, N, m)
+        P_p, dP_p = Pv_p[l_idx], dPv_p[l_idx]
+        P_m, dP_m = Pv_m[l_idx], dPv_m[l_idx]
+        ll1_ = l * (l + 1)
+        d2P_p = (2(χ+ε_fd) * dP_p - ll1_ * P_p + m^2 / (1-(χ+ε_fd)^2) * P_p) / (1-(χ+ε_fd)^2)
+        d2P_m = (2(χ-ε_fd) * dP_m - ll1_ * P_m + m^2 / (1-(χ-ε_fd)^2) * P_m) / (1-(χ-ε_fd)^2)
+        d3P_l = (d2P_p - d2P_m) / (2ε_fd)
+    else
+        d3P_l = 0.0  # boundary value
+    end
     d3h_χχχ = A * T_n * d3P_l
 
     # Map to the 40-entry h_term_map ordering
@@ -197,9 +208,17 @@ function parse_h_term_map(h_term_strings::Vector{String})
         end
         @assert j > 0 "Could not parse j from: $s"
 
-        # Count r-derivatives and chi-derivatives
-        α_r = count("Differential(r", s)
-        β_χ = count("Differential(chi", s)
+        # Sum derivative orders.  Handles both:
+        #   Differential(r, 2)(...)          compact format (order as arg)
+        #   Differential(r)(Differential(r)(...))   nested format (implicit order 1)
+        α_r = 0
+        for m in eachmatch(r"Differential\(r(?:,\s*(\d+))?\)", s)
+            α_r += m.captures[1] === nothing ? 1 : parse(Int, m.captures[1])
+        end
+        β_χ = 0
+        for m in eachmatch(r"Differential\(chi(?:,\s*(\d+))?\)", s)
+            β_χ += m.captures[1] === nothing ? 1 : parse(Int, m.captures[1])
+        end
         push!(map, (j, α_r, β_χ))
     end
     return map
