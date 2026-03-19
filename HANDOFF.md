@@ -1,168 +1,147 @@
-# Handoff Notes — MetricsQNM.jl
+# Handoff — MetricsQNM.jl sGB Extension
 
-## Project Goal
+## Project in one sentence
 
-Reproduce **Table I of arxiv:2312.08435** — fundamental (n=0, l=2, m=2) quasi-normal mode frequencies of Kerr black holes for spins a = 0.005 to 0.95 — using Julia + TensorGR.jl.
+Compute quasinormal mode (QNM) frequency corrections in scalar-Gauss-Bonnet (sGB) gravity by eigenvalue perturbation theory, reproducing Tables I-III of arxiv:2406.11986.
 
-## Current Status (2026-03-18, session 3)
+## What works (GR foundation — COMPLETE)
 
-**SVD compression QEP solver added. Symbolic G extraction runs but has a denominator-clearing bug.**
+The GR METRICS pipeline reproduces **219/220 digits** of Table I (arxiv:2312.08435) for the fundamental (n=0, l=2, m=2) Kerr QNM across 11 spins a=0.005..0.95.
 
-### What happened in this session
-1. **SVD compression QEP solver written** — `src/rectangular_qep.jl` (149 lines), adapted from `af-tests/examples13` benchmarks. SVD compression + companion QZ for rectangular QEPs. **Verified**: 72/72 synthetic eigenvalues recovered at 5.4e-14 accuracy.
-2. **`reproduce_table1()` rewritten** in `newton.jl` to use the full pipeline: `build_system_symbolic` → `solve_qep_svd` → `solve_qep_newton`.
-3. **Tree-walker `_walk_expanded_poly` wired up** (replacing slow `polynomial_coeffs`). Extraction runs at 104 tasks/s (3.8s total for 400 tasks) instead of 0.9 tasks/s.
-4. **BLOCKER: Denominator clearing is insufficient.** The field equations contain rational subexpressions (Christoffel symbols with Σ, Δ denominators). `Symbolics.expand(coeff * denom)` does NOT distribute `denom` through rational subterms. Result: hundreds of `BasicSymbolicImpl{SymReal}` warnings = terms silently dropped. K₂ = 0 terms (no ω² contributions), making the QEP degenerate.
+Pipeline: `compute_field_equations(2)` → symbolic linearized Ricci → `extract_G_bespoke` (bespoke SparsePoly CAS) → `build_system_bespoke(a, N, m)` → `METRICSSystem(D0, D1, D2)` → `solve_qep_svd` (SVD compression + companion QZ) → eigenvalue at machine precision.
 
-### The denominator bug in detail
-- Field equations δR^μ_ν are **rational** in (r, χ) due to Christoffel symbol denominators (Σ², ΣΔ, etc.)
-- Extracting coefficient of h_i via substitution gives a rational function, not a polynomial
-- Multiplying by Σ^P Δ^Q (1-χ²)^S and calling `Symbolics.expand` doesn't cancel inner denominators
-- The "problematic terms" are full rational expressions like `(poly_num * r^6) / (Σ^5 * Δ * ...)` sitting in the Add.dict of the "expanded" expression
-- Both `polynomial_coeffs` and `_walk_expanded_poly` fail on these — they're not polynomials!
+Key insight: the QEP solver (not Newton-Raphson) is the production method. It finds ALL eigenvalues at once, verified to 1e-14 on synthetic benchmarks. The QEP audition is at `../af-tests/examples13/REPORT_rectangular_qep.md`.
 
-### Fix attempted (partially)
-- Added `Symbolics.simplify_fractions(raw)` before `expand` — this should cancel the inner Σ/Δ factors against the clearing denom. **Not yet tested** — session ended before the run completed.
+## sGB extension — current state (Phase 2 of 4 in progress)
 
-### Dead ends documented
-- **Numerical polynomial fitting** (Vandermonde, `poly_extract.jl`): unstable, ~2-6% error
-- **Numerical z-space extraction** (`zspace_extract.jl`): clearing factor destroys boundary conditions, caps at |Δω|≈0.01
-- **P=3, Q=1, S=1 clearing alone**: insufficient for these rational field equations
+**Goal**: Eq. 111 of 2406.11986: `x⁽¹⁾ = -J⁻¹ · [D̃⁽¹⁾(ω⁰) · v⁰]`, where ω⁽¹⁾ = last component of x⁽¹⁾.
 
-## What Works (16/23 issues closed)
+| Component | Status | File |
+|-----------|--------|------|
+| **GR solution** (ω⁰, v⁰, J) | **DONE** | `newton.jl` — `solve_qnm` returns J, free_idx, pinned_idx |
+| **sGB background** (H₁-H₄, ϑ) | **DONE** | `sgb_background.jl` — parses Mathematica notebook, verified 12 digits |
+| **sGB linearization** (compiled correction evaluator) | **DONE** | `sgb_linearize.jl` — 10 compiled equations, 1.7s/point after JIT |
+| **Eigenvalue perturbation solver** | **DONE** | `sgb_perturbation.jl` — `solve_sgb_perturbation(sys_corr, ω0, v0, J)` |
+| **D̃⁽¹⁾ collocation assembly** | **TODO** | Wire compiled evaluator into spectral collocation assembly |
+| **End-to-end test** | **TODO** | Compare ω⁽¹⁾ to Tables I-III of 2406.11986 |
 
-### 1. Symbolic Pipeline (COMPLETE)
-- `src/linearize.jl`: Kerr metric → background Christoffel Γ → Regge-Wheeler perturbation h_μν → linearized Christoffel δΓ → linearized Ricci δR_μν → mixed form δR_μ^ν
-- Mode derivatives: ∂_t → -iω, ∂_φ → im properly implemented via symbolic (ω_re, ω_im, iu_sym) split
-- Output: 10 symbolic field equations, 20K-60K characters each, involving 40 h-derivative terms
-- `compute_field_equations(2)` runs the full pipeline
+## EXACTLY what needs to be done next
 
-### 2. Compiled Evaluator (COMPLETE)
-- `src/coefficients.jl`: `compile_field_equations(m_mode=2)` compiles the 10 equations into fast Julia callables via `Symbolics.build_function`
-- 43μs per equation evaluation
-- Complex arithmetic via **iu-polynomial trick**: evaluate at iu=0, iu=1, iu=-1, extract coefficients a₀, a₁, a₂ of iu-polynomial, reconstruct with iu→im since im²=-1: `result = (a₀ - a₂) + im·a₁`
-- The 40 h-derivative terms are auto-discovered from the symbolic equations via `Symbolics.get_variables`
+### Step 1: Build `build_sgb_Dtilde_collocation` (~150 lines)
 
-### 3. Coefficient Extraction (COMPLETE)
-- `src/galerkin.jl`: `extract_coefficients_complex(cfe, r, χ, ω, a)` returns 10×40 coefficient matrix at any point
-- `separate_omega_dependence(cfe, r, χ, a)` returns (C₀, C₁, C₂) where C(ω) = C₀ + C₁ω + C₂ω²
-- **Verified to 1e-16** at 4 complex ω values
+At each collocation point (r_j, χ_k) on the spectral grid:
 
-### 4. A_k Factorization (COMPLETE)
-- `src/factored_assembly.jl`: `_transform_h_to_u` converts h-derivative coefficients to u-derivative coefficients
-- Uses `_Ak_ratios(j, r, ω, params)` → [1, dlogA/dr, d²logA/dr² + (dlogA/dr)²]
-- Product rule: ∂_r^α(A u) = Σ binom(α,a)(∂^a A)(∂^{α-a} u), divide by A
-- **Verified**: factored coefficients are EXACTLY degree-2 polynomial in ω (tested at 4 ω values, error < 1e-16)
+1. Compute `hp = sgb_H_params(bg, r_val, χ_val)` — 24 numerical values (H_i + derivatives via finite diff)
+2. Call `separate_sgb_omega(csc, r, χ, a, hp)` → `(C0, C1, C2)` — 10×40 complex correction coefficient matrices
+3. These matrices tell you: correction equation k gets contribution `C0[k,d] + C1[k,d]·ω + C2[k,d]·ω²` from h-derivative d
 
-### 5. Leaver Oracle (COMPLETE)
-- `src/leaver.jl`: Matches Table I to 1e-9 (low spin) / 1e-5 (high spin)
-- Cook-Zalutskiy (2014) recurrence, SpinWeightedSpheroidalHarmonics.jl angular eigenvalue
-- **Critical**: Julia SWSH package returns λ (Teukolsky constant), not A_slm. Convert: `A_slm = λ - c² + 2mc`
+The 40 h-derivative terms map to spectral coefficients via the same derivative/multiplication matrices used in the GR assembly (`spectral.jl`). Look at how `build_Dtilde` in `dtilde.jl` or `build_factored_system` in `factored_assembly.jl` does this for the GR case.
 
-### 6. Spectral Bases (COMPLETE)
-- `src/spectral.jl`: ChebyshevBasis (derivative, z-multiplication matrices), LegendreBasis (derivative, χ-multiplication)
-- Second-derivative elimination identities (Eq. 29)
-- `src/assembly.jl`: full Galerkin assembly from PDECoefficients → D̃ matrices
+The output is `METRICSSystem(D0_corr, D1_corr, D2_corr, N, m, a)` — the correction matrices.
 
-### 7. D̃ Assembly (PARTIALLY WORKING)
-- `src/dtilde.jl`: RadialGrid, AngularGrid (with Gauss-Legendre nodes), AsymptoticGrid
-- `build_Dtilde`: collocation with/without A_k
-- `build_factored_system`: Galerkin with A_k factorization + quadrature
-- **Cross-check**: collocation vs Galerkin agree to 1.5e-16
-- QEP companion linearization eigenvalue solver: finds approximate QNMs at |Δω| ≈ 0.02-0.06
+**Performance**: After JIT warmup (~355s one-time), each point takes ~1.7s. For N=8 (81 points) that's ~138s. Acceptable.
 
-### 8. SVD Compression QEP Solver (NEW, VERIFIED)
-- `src/rectangular_qep.jl`: SVD compression + companion QZ for rectangular QEPs
-- `solve_qep_svd(D0, D1, D2; ω₀, refine)`: finds ALL eigenvalues
-- `solve_qep_newton(D0, D1, D2, ω; max_iter)`: refines single eigenvalue via σ_min Newton
-- `qep_residual`, `validate_qep` for diagnostics
-- **Verified on synthetic 60×36 rectangular QEP**: 72/72 eigenvalues at 5.4e-14
+### Step 2: End-to-end test (~50 lines)
 
-### 9. Newton-Raphson (STRUCTURE COMPLETE, NOT CONVERGING)
-- `src/newton.jl`: standard overdetermined pinv Newton + updated `reproduce_table1()`
-- `src/solve.jl`: per-step D̃ building variant
-- Diverges because D̃ matrices are not accurate enough (see blocker)
+```julia
+a = 0.3; N = 8; m = 2
+bg = sgb_background(a)
+sys_gr = build_system_bespoke(a, N, m)
+gr = solve_qnm(sys_gr, ω_guess; parity=:polar)  # → ω⁰, v⁰, J
 
-## THE BLOCKER: Symbolic G Coefficient Extraction
+sys_corr = build_sgb_Dtilde_collocation(a, N, m, bg, csc)
+ω1 = solve_sgb_perturbation(sys_corr, ComplexF64(gr.ω), gr.v, gr.J)
+# Compare to paper: ω⁽¹⁾_polar(a=0.3) ≈ -0.36419 - 0.04236i
+```
 
-### Current pipeline (`src/symbolic_pipeline.jl`)
-1. `compute_field_equations(2)` → 10 symbolic equations with ~1870 terms each
-2. For each (k, d): substitute h-terms to extract individual coefficient (~0.25s)
-3. Multiply by `Σ^P Δ^Q (1-χ²)^S`, call `simplify_fractions`, then `expand`
-4. Extract all monomials via `_walk_expanded_poly` (fast tree walker, 104 tasks/s)
-5. Decompose ω via the iu→i trick → G₀, G₁, G₂
-6. Transform r → z via binomial expansion
-7. Feed to `assembly.jl` → D̃₀, D̃₁, D̃₂
+### Step 3: Sweep Table I (all spins, both parities)
 
-### The problem
-Step 3 currently uses `Symbolics.simplify_fractions` to cancel inner Σ/Δ denominators. **This has not been tested yet.** If `simplify_fractions` is too slow or doesn't fully clear, alternatives:
-- Increase P, Q, S (try P=6, Q=3, S=2) — but `expand` alone won't distribute through divisions
-- Use `Symbolics.simplify_fractions` + `expand` (current approach, untested)
-- Switch strategy: use the **compiled evaluator** (galerkin.jl, 43μs/eval) + numerical Galerkin quadrature instead of symbolic extraction
+Ground truth from paper's Table I (nlm=022):
+```
+a=0.005: axial  0.05984+0.00719i  polar -0.22664-0.07525i
+a=0.1:   axial  0.07282+0.01353i  polar -0.26228-0.07146i
+a=0.3:   axial  0.09087+0.00782i  polar -0.36419-0.04236i
+```
 
-### Alternative path: numerical Galerkin with compiled evaluator
-The compiled evaluator (`coefficients.jl`) + `separate_omega_dependence` already work perfectly (verified to 1e-16). The existing `build_factored_system` in `factored_assembly.jl` uses this path with Gauss-Legendre quadrature. This numerical approach avoids the symbolic denominator-clearing issue entirely. The question is whether quadrature accuracy is sufficient for Newton convergence.
+## Critical technical knowledge
 
-## Next Steps
+### The symbolic blowup and how we solved it
 
-1. **Test `simplify_fractions` fix**: `julia --project=. --threads=8 test/test_svd_qep.jl`
-   - Check: are warnings gone? Is K₂ nonzero? Do QEP eigenvalues converge?
-2. **If `simplify_fractions` is too slow**: try the compiled evaluator + numerical Galerkin path
-3. **If either works**: Newton-Raphson refinement → Table I sweep
+The sGB metric corrections H₁-H₄ are 27-term rational functions of (r, χ) at fixed spin. Naively inserting them into the symbolic linearization produces expressions of **100-155 million characters** because Symbolics.jl doesn't auto-simplify rational functions (unlike Mathematica which does GCD at every step).
 
-## Key Technical Details
+**Solution**: Use 24 ABSTRACT symbolic variables (`H1, H1_r, H1_chi, H1_rr, H1_chichi, H1_rchi, H2, ...`) instead of the actual polynomial expressions. The correction equations are LINEAR in these, so expressions stay at ~200K chars (comparable to GR). At evaluation time, substitute numerical values from `sgb_background`.
 
-### Convention: M = 1
-All formulas use M = 1. The paper's Table I values are ωM (dimensionless).
+This is implemented in `sgb_linearize.jl`. The compiled evaluator takes 70 arguments: 6 base (r, χ, ω_re, ω_im, iu, a) + 24 H params + 40 h-derivative placeholders.
 
-### SpinWeightedSpheroidalHarmonics.jl
-Returns Teukolsky λ, NOT Leaver A_slm. Convert: `A_slm = λ - c² + 2mc` where `c = aω`.
+### The iu-polynomial trick
 
-### iu-polynomial trick
-Compiled functions take real args `(r, χ, ω_re, ω_im, iu_sym, a, p₁...p₄₀)`. To get complex results: evaluate at iu=0, 1, -1, extract polynomial in iu, substitute iu→im. See `extract_coefficients_complex()` in galerkin.jl.
+Complex arithmetic is handled by treating the imaginary unit as a symbolic variable `iu`. Evaluate at iu=0, 1, -1, extract polynomial coefficients, substitute iu→im. This avoids complex symbolic algebra. See `extract_coefficients_complex` in `galerkin.jl`.
 
-### TensorGR.jl
-At `../TensorGR.jl`, actively developed. DO NOT edit. Use `symbolic_metric()`, `symbolic_christoffel()`, `sym_deriv()` from the Symbolics extension.
+### ω-polynomial separation
 
-### Compilation time
-First `compile_field_equations()` call: ~97 seconds. Subsequent D̃ builds: 2-60 seconds depending on N. Compiled function evaluation: ~43μs.
+The D̃ matrices are quadratic in ω: `D̃(ω) = D̃₀ + ω·D̃₁ + ω²·D̃₂`. Extract by evaluating at ω=0, 1, -1 and solving the 3-point system. See `separate_omega_dependence` in `galerkin.jl`.
 
-### Threading
-Use `--threads=8` for Julia. More threads (e.g. 64) cause OpenBLAS contention and 37% slowdown.
+### What D̃⁽¹⁾ is missing (known limitation)
 
-## File Map
+The current `sgb_linearize.jl` computes D̃⁽¹⁾ from **source 1 only**: the O(ζ) correction to the linearized Ricci from the modified background metric g = g_Kerr + ζ·H. There is also **source 2**: the linearized sGB source tensor A_μ^ν (Eq. 12 of the paper), which involves the Gauss-Bonnet invariant contracted with ∇∇ϑ. This is NOT yet implemented. If results from source 1 alone don't match the paper, source 2 must be added. TensorGR.jl at `../TensorGR.jl` has `euler_density()` and `generalized_delta()` that could help.
+
+### The bespoke SparsePoly CAS (`sparse_poly.jl`)
+
+For the GR pipeline, we built a custom CAS to replace `Symbolics.simplify_fractions` (which hangs). It represents polynomials as `Dict{NTuple{5,Int}, Float64}` with structural denominator tracking. This was essential for the GR G-coefficient extraction. A similar approach could be built for the sGB tensor algebra (option 3 from the plan) to eliminate the JIT warmup cost.
+
+## Conventions
+
+- `M = 1` everywhere. Table values are `ωM` (dimensionless).
+- SpinWeightedSpheroidalHarmonics.jl returns Teukolsky λ, NOT Leaver A_slm. Convert: `A_slm = λ - c² + 2mc`.
+- Use `--threads=8` for Julia. More threads (32+) cause OpenBLAS contention.
+- TensorGR.jl at `../TensorGR.jl` — actively developed, DO NOT edit.
+- The user prefers QEP over Newton-Raphson, rich diagnostic output with flush after every print, and fail-fast behavior.
+
+## File map
 
 ```
 src/
-  MetricsQNM.jl          — module root
-  kerr.jl                — KerrParams, Σ, Δ, r±, Ω_H, κ
-  perturbation_ansatz.jl — A_k(r), ρ_H, ρ_∞, z↔r transforms
-  spectral.jl            — ChebyshevBasis, LegendreBasis, nl_index
-  leaver.jl              — Leaver CF QNM solver
-  linearize.jl           — Symbolic: Kerr → δΓ → δR → 10 field equations
-  coefficients.jl        — compile_field_equations, CompiledFieldEquations
-  galerkin.jl            — extract_coefficients_complex, separate_omega_dependence
-  factored_assembly.jl   — _transform_h_to_u (A_k factorization), Galerkin D̃
-  assembly.jl            — PDECoefficients → D̃ via spectral inner products
-  dtilde.jl              — RadialGrid, AngularGrid, collocation D̃
-  pipeline.jl            — numerical pipeline (FLAWED — use symbolic instead)
-  poly_extract.jl        — numerical polynomial extraction (FLAWED)
-  collocation.jl         — scaffolding
-  newton.jl              — solve_qnm + reproduce_table1 (uses SVD QEP)
-  solve.jl               — solve_qnm_direct (per-step D̃ variant)
-  symbolic_decompose.jl  — early symbolic extraction scaffold (superseded)
-  zspace_extract.jl      — numerical z-space extraction (DEAD END)
-  symbolic_pipeline.jl   — symbolic G extraction + tree walker + r→z transform
-  rectangular_qep.jl     — SVD compression QEP solver (NEW, VERIFIED)
+  MetricsQNM.jl              — module root
+  kerr.jl                    — KerrParams, Σ, Δ, r±
+  perturbation_ansatz.jl     — A_k(r), z↔r transforms
+  spectral.jl                — ChebyshevBasis, LegendreBasis
+  leaver.jl                  — Leaver CF QNM solver (reference values)
+  linearize.jl               — Symbolic: Kerr → δΓ → δR → 10 field equations
+  coefficients.jl            — compile_field_equations → fast callables
+  galerkin.jl                — extract_coefficients_complex, separate_omega_dependence
+  sparse_poly.jl             — Bespoke SparsePoly CAS (replaces simplify_fractions)
+  symbolic_pipeline.jl       — extract_G_bespoke, build_system_bespoke, sweep_N
+  assembly.jl                — PDECoefficients → D̃ via spectral inner products
+  rectangular_qep.jl         — SVD compression QEP solver (the winner)
+  newton.jl                  — solve_qnm (returns J for perturbation theory)
+  sgb_background.jl          — Parse H₁-H₄, ϑ from Mathematica + derivative evaluator
+  sgb_linearize.jl           — Perturbative sGB correction: compile + extract coefficients
+  sgb_perturbation.jl        — Eigenvalue perturbation solver (Eq. 111)
+  [dtilde.jl, factored_assembly.jl, collocation.jl] — earlier D̃ approaches (reference)
+  [poly_extract.jl, zspace_extract.jl, pipeline.jl] — dead ends (kept for reference)
 test/
-  runtests.jl, test_kerr.jl, test_spectral.jl, test_leaver.jl — 605+ tests, all passing
-  test_symbolic_pipeline.jl — full pipeline test with SVD convergence + QEP
-  test_svd_qep.jl           — SVD QEP end-to-end test (NEW)
-  test_zspace.jl            — z-space tests (dead end)
+  reproduce_paper.jl         — Generates Figs 1,2,5,6 from the GR paper
+  reproduce_table1.jl        — Table I reproduction (219/220 digits)
+reference/
+  2406.11986_source/         — sGB paper supplementary materials (Mathematica notebook)
 ```
 
-## Issue Tracker
+## Key function signatures
 
-`bd ready` shows unblocked work. `bd list` for full status. `bd graph --all` for dependencies. 16/23 closed.
+```julia
+# GR pipeline
+sys = build_system_bespoke(a, N, m)          # → METRICSSystem(D0, D1, D2)
+eigs = solve_qep_svd(sys; ω₀=ω_L, refine=1) # → all eigenvalues
+gr = solve_qnm(sys, ω_guess; parity=:polar)  # → (ω, v, J, free_idx, ...)
 
-Critical path: **Fix denominator clearing** → G extraction → assembly → QEP → Newton → Table I.
+# sGB background
+bg = sgb_background(a; verbose=true)         # → SGBBackground with H[1..4](r,χ)
+hp = sgb_H_params(bg, r, χ)                  # → 24-element Float64 vector
+
+# sGB correction (compiled evaluator)
+csc = compile_sgb_correction(2; verbose=true) # → CompiledSGBCorrection (one-time)
+C0, C1, C2 = separate_sgb_omega(csc, r, χ, a, hp)  # → 10×40 complex matrices
+
+# Perturbation solve
+ω1 = solve_sgb_perturbation(sys_corr, ω0, v0, J)   # → ω⁽¹⁾ ∈ ℂ
+```
