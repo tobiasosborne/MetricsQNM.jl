@@ -376,7 +376,7 @@ end
 #  Bespoke extraction via SparsePoly (replaces simplify_fractions pipeline)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-export extract_G_bespoke, build_system_bespoke, normalize_system!
+export extract_G_bespoke, build_system_bespoke, normalize_system!, sweep_N
 
 """
     extract_G_bespoke(a; P=3, Q=1, S=1, verbose=false) → (K₀, K₁, K₂)
@@ -580,6 +580,45 @@ function build_system_bespoke(a::Float64, N::Int, m::Int;
     normalize_system!(sys)
     verbose && (println("  Per-equation normalization applied"); flush(stdout))
     sys
+end
+
+"""
+    sweep_N(a, m, N_range; P=3, Q=1, S=1, verbose=false) → Dict{Int, METRICSSystem}
+
+Build systems for multiple N values efficiently: extract G coefficients once,
+then assemble + normalize for each N. ~5s extraction + ~0.1s per N.
+"""
+function sweep_N(a::Float64, m::Int, N_range;
+                  P::Int=3, Q::Int=1, S::Int=1, verbose::Bool=false)
+    rp = r_plus(a)
+
+    verbose && (println("Extracting G coefficients (a=$a)..."); flush(stdout))
+    K0_r, K1_r, K2_r = extract_G_bespoke(a; P, Q, S, verbose)
+
+    d_max = 0
+    for K in (K0_r, K1_r, K2_r), k in 1:10
+        for ((γ, δ, σ, α, β, j), _) in K.equations[k]
+            d_max = max(d_max, δ)
+        end
+    end
+    verbose && (println("  d_max=$d_max, transforming r→z..."); flush(stdout))
+
+    K0_z = _r_to_z(K0_r, rp, d_max)
+    K1_z = _r_to_z(K1_r, rp, d_max)
+    K2_z = _r_to_z(K2_r, rp, d_max)
+
+    systems = Dict{Int, METRICSSystem}()
+    for N in N_range
+        basis = spectral_basis(N, m)
+        D0 = assemble_system(K0_z, basis, a).D0
+        D1 = assemble_system(K1_z, basis, a).D0
+        D2 = assemble_system(K2_z, basis, a).D0
+        sys = METRICSSystem(D0, D1, D2, N, m, a)
+        normalize_system!(sys)
+        systems[N] = sys
+    end
+    verbose && (println("  Built $(length(systems)) systems (N=$(first(N_range))..$(last(N_range)))"); flush(stdout))
+    return systems
 end
 
 """

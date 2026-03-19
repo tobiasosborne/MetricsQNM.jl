@@ -5,6 +5,7 @@
 # Algorithm: SVD compress to n×n, then companion linearization + QZ.
 
 export solve_qep_svd, solve_qep_newton, qep_residual, validate_qep
+export solve_qep_with_vectors, classify_parity
 
 """
     solve_qep_svd(sys; ω₀=0.0, refine=1) → eigenvalues::Vector{ComplexF64}
@@ -146,4 +147,81 @@ function validate_qep(sys::METRICSSystem, eigenvalues; tol::Real=1e-8)
     end
 
     return (good=good, residuals=residuals)
+end
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  QEP solver with eigenvector return + parity classification
+# ═══════════════════════════════════════════════════════════════════════════════
+
+"""
+    solve_qep_with_vectors(sys; ω₀=0.0, refine=1, normalize=true)
+        → (eigenvalues, eigenvectors, Un)
+
+Like solve_qep_svd but also returns the original-space eigenvectors.
+Each column of `eigenvectors` corresponds to one eigenvalue.
+"""
+function solve_qep_with_vectors(sys::METRICSSystem; ω₀::Number=0.0,
+                                 refine::Int=1, normalize::Bool=true)
+    normalize && normalize_system!(sys)
+    D0, D1, D2 = sys.D0, sys.D1, sys.D2
+    m_rows, n_cols = size(D0)
+
+    # Initial solve + refinement (same logic as solve_qep_svd)
+    ω_proj = ComplexF64(ω₀)
+    evals = ComplexF64[]
+    for pass in 0:refine
+        P0 = D0 .+ ω_proj .* D1 .+ ω_proj^2 .* D2
+        F = svd(P0)
+        Un = m_rows > n_cols ? F.U[:, 1:n_cols] : F.U
+
+        A = Un' * D0
+        B = Un' * D1
+        C = Un' * D2
+
+        n = size(A, 1)
+        L0 = zeros(ComplexF64, 2n, 2n)
+        L1 = zeros(ComplexF64, 2n, 2n)
+        L0[1:n, n+1:2n] .= I(n)
+        L0[n+1:2n, 1:n] .= -A
+        L0[n+1:2n, n+1:2n] .= -B
+        L1[1:n, 1:n] .= I(n)
+        L1[n+1:2n, n+1:2n] .= C
+
+        E = eigen(L0, L1)
+        evals = E.values
+
+        if pass < refine
+            # Pick most physical eigenvalue for re-projection
+            finite_eigs = filter(isfinite, evals)
+            physical = filter(e -> imag(e) < 0, finite_eigs)
+            if !isempty(physical)
+                ω_proj = physical[argmin(abs.(imag.(physical)))]
+            elseif !isempty(finite_eigs)
+                ω_proj = finite_eigs[argmin(abs.(finite_eigs))]
+            end
+        else
+            # Final pass: extract eigenvectors
+            evecs = zeros(ComplexF64, n_cols, length(evals))
+            for i in eachindex(evals)
+                evecs[:, i] = E.vectors[1:n, i]
+            end
+            return (eigenvalues=evals, eigenvectors=evecs)
+        end
+    end
+
+    # Fallback (refine=0)
+    return (eigenvalues=evals, eigenvectors=zeros(ComplexF64, n_cols, 0))
+end
+
+"""
+    classify_parity(v, N) → :axial or :polar
+
+Classify an eigenvector as axial-led or polar-led based on the norm ratio
+of polar (h₁-h₄) vs axial (h₅-h₆) field components.
+"""
+function classify_parity(v::AbstractVector{<:Number}, N::Int)
+    bs = (N + 1)^2
+    polar_norm = sum(abs2, v[1:4*bs])
+    axial_norm = sum(abs2, v[4*bs+1:6*bs])
+    return axial_norm > polar_norm ? :axial : :polar
 end
