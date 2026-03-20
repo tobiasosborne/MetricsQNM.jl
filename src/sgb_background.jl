@@ -498,3 +498,119 @@ function sgb_H_params(bg::SGBBackground, r::Float64, χ::Float64;
     end
     params
 end
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  H_i as RatPoly (for exact symbolic sGB K-coefficient extraction)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+export load_H_ratpolys
+
+"""
+    _differentiate_ratpoly_r(rp::RatPoly) → RatPoly
+
+Differentiate a RatPoly with respect to r (variable index 1).
+For denom with r^t factor: d/dr [f/r^t] has numerator = f'·r - t·f
+and denominator r^{t+1}. Other denom factors (Σ, Δ, s2) don't depend
+solely on r, so for H_i (which only have r-denominators), this is exact.
+
+NOTE: This assumes the only denominator factor is r^t (true for H_i from
+the paper, where Σ/Δ/(1-χ²) don't appear in H_i denominators).
+"""
+function _differentiate_ratpoly_r(rp::RatPoly)
+    # f(r,χ) / r^t  →  (f'r - t·f) / r^{t+1}
+    f = rp.num
+    t = rp.den.t
+    f_r = differentiate(f, 1)   # df/dr
+    if t == 0
+        return RatPoly(f_r, rp.den)
+    end
+    r_poly = var_poly(1)
+    new_num = f_r * r_poly - Float64(t) * f
+    cleanup!(new_num; tol=1e-15, relative=true)
+    RatPoly(new_num, DenomSig(rp.den.p, rp.den.q, rp.den.s, t + 1))
+end
+
+"""
+    _differentiate_ratpoly_chi(rp::RatPoly) → RatPoly
+
+Differentiate a RatPoly with respect to χ (variable index 2).
+For H_i, the denominator is r^t (no χ dependence), so d/dχ is simple.
+"""
+function _differentiate_ratpoly_chi(rp::RatPoly)
+    f_chi = differentiate(rp.num, 2)   # df/dχ
+    cleanup!(f_chi; tol=1e-15, relative=true)
+    RatPoly(f_chi, rp.den)
+end
+
+"""
+    load_H_ratpolys(a; verbose=false) → Vector{RatPoly}
+
+Load H₁-H₄ from the Mathematica notebook and convert to 24 RatPoly objects
+(4 functions × 6 derivative components: val, ∂r, ∂χ, ∂²r, ∂²χ, ∂r∂χ).
+
+The RatPolys are in the SparsePoly basis (r, χ, ω_re, ω_im, iu) but only
+use variables 1 (r) and 2 (χ). Denominators are r-powers (DenomSig.t).
+
+Requires a SymToPolyCtx (for the variable mapping). Creates one internally
+using a dummy a_val (the H_i are evaluated at the given `a`).
+"""
+function load_H_ratpolys(a::Float64; verbose::Bool=false)
+    verbose && (println("Loading H_i as RatPoly..."); flush(stdout))
+    t0 = time()
+
+    sections = _load_nb_sections(; verbose=false)
+
+    # Build a minimal SymToPolyCtx for the conversion
+    # We need r_poly and the var_idx mapping — create with Symbolics variables
+    # that match the notebook variables (_r_, _χ_)
+    @variables _r_ _χ_ _dummy_ω_re _dummy_ω_im _dummy_iu
+    var_list = Num[_r_, _χ_, _dummy_ω_re, _dummy_ω_im, _dummy_iu]
+    ctx = SymToPolyCtx(var_list, a)
+
+    H_ratpolys = Vector{RatPoly}(undef, 24)
+
+    for i in 1:4
+        verbose && (print("  H$i: parsing... "); flush(stdout))
+        ti = time()
+
+        expr_str = _box_to_str(sections["H$(i)"])
+
+        # Parse to Julia expression, substitute M=1, α=1, a=numerical
+        body = Meta.parse(expr_str)
+        # Create a module-level evaluation with the correct variables
+        sym_expr = Base.invokelatest(eval, :(let _r_ = $(Num(_r_)), _χ_ = $(Num(_χ_)),
+                                                 _a_ = $a, _M_ = 1, _α_ = 1
+                                                 Num($body)
+                                             end))
+
+        verbose && (print("symexpr_to_poly... "); flush(stdout))
+        rp_val = symexpr_to_poly(sym_expr, ctx)
+        cleanup!(rp_val.num; tol=1e-15, relative=true)
+
+        verbose && (print("diff... "); flush(stdout))
+        rp_dr   = _differentiate_ratpoly_r(rp_val)
+        rp_dchi = _differentiate_ratpoly_chi(rp_val)
+        rp_drr  = _differentiate_ratpoly_r(rp_dr)
+        rp_dchichi = _differentiate_ratpoly_chi(rp_dchi)
+        rp_drchi   = _differentiate_ratpoly_chi(rp_dr)
+
+        # Clean up all derivatives
+        for rp in [rp_dr, rp_dchi, rp_drr, rp_dchichi, rp_drchi]
+            cleanup!(rp.num; tol=1e-15, relative=true)
+        end
+
+        offset = (i - 1) * 6
+        H_ratpolys[offset + 1] = rp_val
+        H_ratpolys[offset + 2] = rp_dr
+        H_ratpolys[offset + 3] = rp_dchi
+        H_ratpolys[offset + 4] = rp_drr
+        H_ratpolys[offset + 5] = rp_dchichi
+        H_ratpolys[offset + 6] = rp_drchi
+
+        verbose && (@printf("%.1fs (val: %d terms, den.t=%d)\n",
+                    time() - ti, length(rp_val.num.terms), rp_val.den.t); flush(stdout))
+    end
+
+    verbose && (@printf("  Total: %.1fs\n", time() - t0); flush(stdout))
+    return H_ratpolys
+end
