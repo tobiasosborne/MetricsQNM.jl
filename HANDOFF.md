@@ -22,81 +22,71 @@ Key insight: the QEP solver (not Newton-Raphson) is the production method. It fi
 | **sGB background** (H₁-H₄, ϑ) | **DONE** | `sgb_background.jl` — parses Mathematica notebook, verified 12 digits |
 | **sGB linearization** (compiled correction evaluator) | **DONE** | `sgb_linearize.jl` — 10 compiled equations, ~6s/point after JIT |
 | **Eigenvalue perturbation solver** | **DONE** | `sgb_perturbation.jl` — `solve_sgb_perturbation(sys_corr, ω0, v0, J)` |
-| **D̃⁽¹⁾ assembly** | **BLOCKED** | Collocation approach implemented but numerically unstable — see below |
-| **End-to-end test** | **BLOCKED** | `test/test_sgb_e2e.jl` runs but gives wrong answer due to assembly issue |
+| **β=3 assembly extension** | **DONE** | `assembly.jl` — `_leg_d3` for 3rd χ-derivative |
+| **D̃⁽¹⁾ assembly** | **IN PROGRESS** | `sgb_galerkin.jl` — pipeline runs, fitting not yet converged |
+| **End-to-end test** | **PARTIAL** | `test/test_sgb_e2e.jl` runs, ω₁ = O(1) but not converged |
 
-## THE BLOCKING PROBLEM: Asymptotic factor blowup in collocation
+## What the paper actually does (deep review 2026-03-20)
 
-### What was attempted
+A thorough review of arxiv:2406.11986 revealed the paper uses **the exact same Galerkin assembly** for D̃⁽¹⁾ as for D̃⁽⁰⁾:
 
-`build_sgb_correction_system` in `sgb_linearize.jl` builds D̃⁽¹⁾(ω₀) via:
-1. At each Chebyshev collocation point (z_i, χ_j), evaluate correction coefficients C (10×40 complex, via compiled evaluator with iu trick)
-2. For each spectral test function (j,n,l), compute h_j = A_j(r,ω₀) × T_n(z) × P_l^m(χ) and all derivatives
-3. Accumulate D_coll[row, col] = C · hvals
-4. Vandermonde transform V⁻¹ to convert collocation rows → Galerkin spectral basis
+1. Symbolically linearize the FULL sGB field equations about g = g_Kerr + ζH
+2. The H_i(r,χ) are rational functions → after clearing, everything is polynomial in r, χ
+3. Extract K^(η=1) coefficients (numbers, not functions!) via symbolic pipeline
+4. Assemble via same spectral inner products as GR
 
-### What happens
+The K^(η=1) coefficients are just numbers because the entire symbolic pipeline stays rational. This is NOT possible in our code because inserting H_i content into Symbolics.jl causes 100-155M char expression blowup on WSL2.
 
-The test function h_j = A_j × u_j involves the asymptotic factor:
+### Critical divergences from paper
+
+1. **Assembly method**: Paper uses symbolic K-extraction; we use numerical evaluation
+2. **Missing sources**: We only have Source 1 (modified Ricci from H). Paper needs all 4:
+   - Source 1: O(ζ) Ricci correction from modified background ✓
+   - Source 2: linearized sGB source tensor A_μ^ν ✗
+   - Source 3: linearized scalar stress-energy T_μ^ν ✗
+   - Source 4: Ω_H¹, κ¹ corrections in A_k ✗
+3. **System size**: Paper is 11 eqs × 7 unknowns (includes scalar h₇); we are 10×6
+
+## THE CURRENT PROBLEM: C[k,d] is NOT polynomial
+
+### What was discovered (2026-03-20)
+
+The correction coefficients C[k,d](r, χ) from `extract_sgb_coefficients_complex` are:
+- **O(1) everywhere** — raw values range from ~0.5 to ~6.0
+- **Smooth** on [r₊, ∞) × [-1, 1]
+- **Asymptote to a nonzero constant** (~1.2) as r → ∞
+
+This means C[k,d] is NOT polynomial in r, NOT polynomial in z, and NOT rational with a finite denominator. It's a genuinely smooth function that requires spectral representation.
+
+### What was tried and failed
+
+1. **r-space clearing + Vandermonde fit** (P=4, Q=2, S=2): Clearing factor Σ^P Δ^Q (1-χ²)^S makes values HUGE at large r (up to 1e25). Polynomial fit gives rel. error ~1e16.
+
+2. **z-space monomial Vandermonde fit**: C[k,d](z, χ) is smooth on [-1,1] but NOT polynomial in z (the rational structure of H_i introduces 1/(1+z)^n terms). Fit error ~1e8, ω₁ does not converge with increasing grid size.
+
+3. **z-space Chebyshev interpolation → monomial**: Same issue — the Chebyshev expansion converges but the monomial conversion amplifies high-degree coefficients. ω₁ unstable.
+
+### The correct path forward
+
+**The assembly needs coefficients as z^δ monomials** (because the spectral operators are `Z[δ+1] * D` etc.). But C[k,d] is smooth, not polynomial. Two viable paths:
+
+**Path A: Spectral projection (recommended)**
+Instead of fitting C as polynomial, project it directly onto the spectral basis:
 ```
-A_j = exp(iωr) × r^(2iω + ρ∞) × ((r - r₊)/r)^σ₊
+D̃⁽¹⁾[(k,n,l), (j,n',l')] = ∫∫ C[k,d](z,χ) × T_n(z) × P_l^m(χ) × T_{n'}(z) × P_{l'}^m(χ) w(z,χ) dz dχ
 ```
-At the outer collocation nodes (z → -1, r → ∞):
-- |A_j| ~ exp(Im(iω) × r) = exp(0.0877 × r)
-- At z = -0.9999 (r ≈ 39000): exp(3427) → **Inf** → NaN
-- At z = -0.99 (r ≈ 390): exp(34) ≈ 7e14 → finite but D₀ norm ≈ 1e25
+Compute this integral via Gauss-Chebyshev × Gauss-Legendre quadrature. This avoids polynomial fitting entirely — the matrix elements are computed directly as numerical integrals. The C[k,d] values at quadrature points are O(1), no blowup.
 
-Even with z clamped to -0.99, the matrix entries are O(1e25) and the perturbation result is garbage (ω⁽¹⁾ ≈ 6e23 instead of ~0.36).
+**Subtlety**: This computes D̃⁽¹⁾ in h-derivative space (the C[k,d] multiply h-derivatives). The GR assembly uses the same convention (r-derivative indices passed through as z-derivative operators). For consistency, the spectral projection should use the SAME operator convention as the GR assembly.
 
-### Why the GR Galerkin assembly doesn't have this problem
+**Path B: Extend SparsePoly to handle sGB**
+Extend the bespoke SparsePoly CAS to extract K^(η=1) symbolically by:
+1. Probing the Symbolics expressions for H-parameter coefficients (24 probes per (k,d))
+2. Representing each c_{k,d,p}(r,χ) as RatPoly (with Σ, Δ denominators)
+3. Multiplying by H_p(r,χ) in SparsePoly land
+4. This avoids the 155M char blowup because H_i content enters as SparsePoly, not Symbolics
 
-The GR `assemble_system` in `assembly.jl` works entirely in spectral coefficient space. The A_j factor is absorbed into the symbolic G-coefficient extraction pipeline — the spectral operators (z^δ ∂_z^α) act on Chebyshev/Legendre coefficients algebraically, never evaluating A_j numerically at any point. So no exponential blowup occurs.
-
-### The correct fix: Galerkin assembly with interpolated coefficients
-
-**Do NOT use collocation.** Instead, adapt the Galerkin assembly for the sGB correction:
-
-1. **Evaluate the correction PDE coefficients on a grid.** At each (r_i, χ_j), call `extract_sgb_coefficients_complex(csc, r, χ, ω₀, a, hp)` to get C[k,d] — the coefficient of h-derivative d in equation k. These are O(1) everywhere (no A_j involved).
-
-2. **Fit each coefficient as a polynomial in z and χ.** For each (k, d) pair, C_k,d(z, χ) is a smooth function (depends on H_i which are rational). Interpolate on a Chebyshev grid to get polynomial coefficients: C̃_k,d = Σ c_{δ,σ} z^δ χ^σ.
-
-3. **Build `PDECoefficients` from the polynomial fit.** For each h-derivative term d = (j, α_r, β_χ), the polynomial coefficient c_{δ,σ} maps to a G-coefficient entry `(γ=0, δ, σ, α, β, j) → c_{δ,σ}` in the `PDECoefficients` format.
-
-4. **Call `assemble_system(K_corr, basis, a)`** — the existing Galerkin assembly handles everything: spectral operators, A_j absorption, weighted derivative identities. The output is `METRICSSystem(D0_corr, 0, 0)`.
-
-**Key subtlety**: the h-derivatives in the correction evaluator are ∂_r^α ∂_χ^β h_j (physical coordinates), but the Galerkin assembly expects ∂_z^α ∂_χ^β u_j (compactified coordinates with weighted operators). You must convert the derivative basis:
-- ∂_r h = (dz/dr) ∂_z h = (dz/dr) [A'u + A ∂_z u]
-- ∂_r² h = ... (chain rule with d²z/dr²)
-- The assembly operators already encode: ∂_z^0 = I, ∂_z^1 = d/dz, ∂_z^2 = (1-z²)d²/dz²
-- The angular operators encode: ∂_χ^1 = (1-χ²)d/dχ, etc.
-
-The conversion from r-derivatives to z-derivatives + A_j factoring can be done either:
-- **(a) Symbolically**: expand ∂_r^α ∂_χ^β (A_j × u_j) via product rule, collect by (u_j, ∂_z u_j, ∂_z² u_j, ...), absorb A_j factors into the coefficient. This gives new coefficients that multiply u-derivatives, which map directly to the Galerkin assembly format.
-- **(b) Numerically**: at each grid point, build a local matrix that maps u-derivative values to h-derivative values (using A_j and dz/dr at that point). Invert this to express the correction equation in u-derivatives. Then fit the resulting coefficients as polynomials.
-
-**Approach (a) is strongly recommended** — it's what the GR pipeline does (the symbolic extraction in `symbolic_pipeline.jl` already handles the r→z change of variables and A_j factoring). The `extract_G_bespoke` function shows the pattern. For the sGB correction, the G coefficients are non-polynomial but can be represented as truncated Chebyshev×Legendre expansions.
-
-### Alternative: direct source vector computation
-
-If building the full D̃⁽¹⁾ matrix proves too hard, you only need the **product** `D̃⁽¹⁾(ω₀) · v₀` (a single vector). This can be computed directly:
-1. Reconstruct the physical fields h_j(r, χ) = A_j × Σ v₀[j,n,l] T_n P_l^m at each point
-2. Compute all h-derivatives from v₀
-3. Evaluate source_k = Σ_d C[k,d] × h_deriv_d at each point
-4. Transform point values to Galerkin coefficients
-
-The cancellation issue is less severe here because the full eigenvector v₀ (not individual test functions) determines the h-values, and the eigenvector coefficients naturally suppress the outer-boundary contribution. However, you still need the Galerkin transform (step 4), which requires the weighted spectral projection.
-
-## Bugs fixed this session
-
-1. **`compile_sgb_correction` spin parameter bug** (`sgb_linearize.jl:339`): `a_s = aparams[1]` was getting `hfuncs[1]` (4th return of `compute_sgb_correction_equations`) instead of `params[1]` (3rd return = Kerr spin). Fixed to `a_s = params[1]`.
-
-2. **`parse_h_term_map` derivative order parsing** (`collocation.jl:188-206`): the old code counted occurrences of `"Differential(r"` to determine derivative order. This fails for the compact Symbolics.jl format `Differential(r, 2)` which has order 2 but only one occurrence. Fixed to extract the numeric order argument via regex.
-
-3. **`_test_function_derivs` ∂³P/∂χ³ placeholder** (`collocation.jl:155-158`): was `d3P_l = 0.0` (placeholder). Fixed to compute via central finite differences on d²P/dχ².
-
-4. **World age barrier** (`sgb_linearize.jl:409`): `csc.fns[k](args)` fails because `eval`-compiled functions are in a newer world age. Fixed with `Base.invokelatest(csc.fns[k], args)`.
-
-5. **GR eigenvector extraction**: `test_sgb_e2e.jl` now uses `solve_qep_with_vectors` (QEP solver, finds ω₀ to 1e-13) instead of `solve_qnm` (Newton, fails to converge at N=8).
+This gives exact K coefficients but requires more implementation work and careful memory management for the ~2000 SparsePoly products.
 
 ## What the compiled evaluator produces
 
@@ -105,37 +95,35 @@ The cancellation issue is less severe here because the full eigenvector v₀ (no
 - 40 h-derivative terms (verified, names printed in test output)
 - Derivatives up to 3rd order: ∂³h₅/∂χ³, ∂³h₆/∂χ³, ∂²r∂χ h₅, ∂r∂²χ h₅/h₆
 - 24 H-parameters, 6 base variables (r, χ, ω_re, ω_im, iu, a)
-- JIT compile time: ~26s. Evaluation: ~6s/point (3 iu values × 40 probes × 10 equations)
+- JIT compile time: ~30s. Evaluation: ~6s/point first run, ~0.07s/point after JIT warm-up
 
-`extract_sgb_coefficients_complex(csc, r, χ, ω₀, a, hp)` returns a 10×40 complex matrix C where `correction_k = Σ_d C[k,d] × h_deriv_d`. These coefficients are O(1) and well-behaved — the problem is ONLY in evaluating h_j = A_j × u_j at large r.
+`extract_sgb_coefficients_complex(csc, r, χ, ω₀, a, hp)` returns a 10×40 complex matrix C where `correction_k = Σ_d C[k,d] × h_deriv_d`. These coefficients are O(1) and well-behaved everywhere.
 
 ## Critical technical knowledge
 
+### The derivative convention mystery
+
+The GR pipeline uses r-derivative indices (α_r from `_parse_h_terms`) but applies z-derivative operators in assembly (`_z_operator` uses ∂_z, (1-z²)∂²_z`). This does NOT include the chain-rule factor dz/dr. Yet it produces 219/220 correct digits. The sGB code must use the SAME convention for consistency.
+
 ### The symbolic blowup and how we solved it
 
-The sGB metric corrections H₁-H₄ are 27-term rational functions of (r, χ) at fixed spin. Naively inserting them into the symbolic linearization produces expressions of **100-155 million characters** because Symbolics.jl doesn't auto-simplify rational functions.
-
-**Solution**: Use 24 ABSTRACT symbolic variables (`H1, H1_r, H1_chi, ...`) instead of the actual polynomial expressions. The correction equations are LINEAR in these, so expressions stay at ~200K chars. At evaluation time, substitute numerical values from `sgb_background`.
+Use 24 ABSTRACT symbolic variables (`H1, H1_r, H1_chi, ...`) instead of actual polynomial expressions. Equations stay at ~200K chars. Numerical values substituted at evaluation time.
 
 ### The iu-polynomial trick
 
-Complex arithmetic is handled by treating the imaginary unit as a symbolic variable `iu`. Evaluate at iu=0, 1, -1, extract polynomial coefficients, substitute iu→im. See `extract_coefficients_complex` in `galerkin.jl`.
+Complex arithmetic via symbolic `iu` variable. Evaluate at iu=0, 1, -1 → reconstruct complex result.
 
-### ω-polynomial separation
+### Missing sources (4 total for full paper reproduction)
 
-The D̃ matrices are quadratic in ω: `D̃(ω) = D̃₀ + ω·D̃₁ + ω²·D̃₂`. Extract by evaluating at ω=0, 1, -1 and solving the 3-point system.
+Source 1 (DONE): O(ζ) Ricci correction from H background
+Source 2 (TODO): linearized sGB source tensor A_μ^ν (involves ∂²ϑ, curvature)
+Source 3 (TODO): linearized scalar stress-energy T_μ^ν
+Source 4 (TODO): Ω_H¹, κ¹ corrections in A_k asymptotic factor
+Plus: 7th unknown h₇ (scalar field perturbation) + 11th equation (scalar wave eq)
 
-### What D̃⁽¹⁾ is missing (known limitation)
+### Performance note
 
-The current `sgb_linearize.jl` computes D̃⁽¹⁾ from **source 1 only**: the O(ζ) correction to the linearized Ricci from the modified background metric g = g_Kerr + ζ·H. There is also **source 2**: the linearized sGB source tensor A_μ^ν (Eq. 12 of the paper). If results from source 1 alone don't match the paper, source 2 must be added.
-
-### The bespoke SparsePoly CAS (`sparse_poly.jl`)
-
-For the GR pipeline, we built a custom CAS to replace `Symbolics.simplify_fractions` (which hangs). A similar approach could be built for the sGB tensor algebra.
-
-### Vandermonde transform: why it's correct (when it works)
-
-The GR Galerkin matrix D_G and the collocation matrix D_C are related by D_C = V · D_G where V is the evaluation matrix V[(iz,iχ), (n,l)] = T_n(z_iz) P_l^m(χ_iχ). This holds EXACTLY for polynomial coefficients because the weighted spectral operators ((1-z²)d²/dz² etc.) cancel their weight factors when evaluated at points: the G coefficients absorb the compensating 1/(1-z²) factor. So V⁻¹ · D_C = D_G. For non-polynomial coefficients (sGB), this gives a spectral interpolation approximation that converges for smooth functions.
+After JIT warm-up, `extract_sgb_coefficients_complex` runs at ~15 pts/s with 8 threads. First call is ~550s for 96 points due to `Base.invokelatest` world-age overhead.
 
 ## Conventions
 
@@ -165,10 +153,11 @@ src/
   sgb_background.jl          — Parse H₁-H₄, ϑ from Mathematica + derivative evaluator
   sgb_linearize.jl           — sGB correction: compile + extract + build_sgb_correction_system
   sgb_perturbation.jl        — Eigenvalue perturbation solver (Eq. 111)
+  sgb_galerkin.jl            — Numerical Galerkin assembly (in progress)
   [dtilde.jl, factored_assembly.jl] — earlier D̃ approaches (reference)
   [poly_extract.jl, zspace_extract.jl, pipeline.jl] — dead ends (kept for reference)
 test/
-  test_sgb_e2e.jl            — End-to-end sGB test (runs, needs assembly fix)
+  test_sgb_e2e.jl            — End-to-end sGB test (uses sgb_galerkin.jl)
   reproduce_paper.jl         — Generates Figs 1,2,5,6 from the GR paper
   reproduce_table1.jl        — Table I reproduction (219/220 digits)
 reference/
@@ -192,7 +181,10 @@ csc = compile_sgb_correction(2; verbose=true) # → CompiledSGBCorrection (one-t
 C = extract_sgb_coefficients_complex(csc, r, χ, ω, a, hp)  # → 10×40 complex matrix
 C0, C1, C2 = separate_sgb_omega(csc, r, χ, a, hp)  # → ω-separated coefficients
 
-# D̃⁽¹⁾ assembly (CURRENT — broken, needs rewrite to Galerkin)
+# D̃⁽¹⁾ assembly (NEW — numerical Galerkin, in progress)
+sys_corr = build_sgb_galerkin(a, N, m, bg, ω0; csc=csc, N_z=20, N_χ=12)
+
+# D̃⁽¹⁾ assembly (OLD — collocation, broken, kept for reference)
 sys_corr = build_sgb_correction_system(a, N, m, bg, ω0; csc=csc)
 
 # Perturbation solve
