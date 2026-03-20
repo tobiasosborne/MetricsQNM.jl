@@ -48,6 +48,51 @@ function _leg_d2(lb::LegendreBasis)
     2 * lb.X[2] * lb.D - ll1 * one_m_χ2 + am^2 * sparse(I, sz, sz)
 end
 
+"""
+Third angular derivative: (1−χ²)³ d³P/dχ³.
+
+Derived by differentiating the identity for (1−χ²)² d²P/dχ² and using
+the product rule. Let D = (1−χ²)d/dχ (what lb.D encodes), then:
+
+  d/dχ[(1−χ²)² d²P] = (1−χ²)³ d³P − 4χ(1−χ²)² d²P
+
+So: (1−χ²)³ d³P = d/dχ[(1−χ²)² d²P] + 4χ(1−χ²)² d²P
+
+The first term d/dχ[f] where f = d2 · P is computed as D·(d2·P)/(1−χ²),
+but since D encodes (1−χ²)d/dχ, we have D·(d2) = (1−χ²) d/dχ[(1−χ²)² d²P].
+So d/dχ[(1−χ²)² d²P] needs to account for the (1−χ²) factor.
+
+Actually, we use: (1−χ²)³ d³P = (1−χ²) D·(d2·P) + 4χ (1−χ²)² d²P
+where D·(d2) is the composition of the D operator with d2.
+Wait, more carefully: D encodes (1−χ²)d/dχ, so D applied to the coefficient
+vector of f gives the coefficient vector of (1−χ²)df/dχ. If f = d2·c where
+c is the coefficient vector of P, then D·d2·c gives coefficients of
+(1−χ²) d/dχ[(1−χ²)²d²P/dχ²].
+
+So: (1−χ²)·d/dχ[(1−χ²)²d²P] = D·d2 applied to c.
+And: (1−χ²)³ d³P = D·d2 + 4χ·(1−χ²)·d2 ... but we have extra (1−χ²) factors.
+
+Let's be precise. We want operator O3 such that O3·c = coefficients of (1−χ²)³ d³P.
+Start from: (1−χ²)² d²P = d2·c (our d2 operator)
+Differentiate: d/dχ[(1−χ²)² d²P] = (1−χ²)² d³P − 4χ(1−χ²) d²P
+
+Multiply by (1−χ²):
+(1−χ²)·d/dχ[(1−χ²)²d²P] = (1−χ²)³ d³P − 4χ(1−χ²)² d²P
+
+So: (1−χ²)³ d³P = (1−χ²)·d/dχ[(1−χ²)²d²P] + 4χ·(1−χ²)² d²P
+                  = D·d2 + 4χ·(1−χ²)·d2  ... no, 4χ(1−χ²)² d²P = 4χ · d2.
+
+Aha: since d2 already encodes (1−χ²)² d²P, we have:
+  4χ(1−χ²)² d²P ↔ 4 χ · d2   (the χ multiplication operator times d2)
+
+And D·d2 gives (1−χ²)·d/dχ[(1−χ²)²d²P].
+
+So: (1−χ²)³ d³P ↔ D * d2 + 4 * X[2] * d2
+"""
+function _leg_d3(lb::LegendreBasis, d2)
+    lb.D * d2 + 4 * lb.X[2] * d2
+end
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Operator composition for one PDE term
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -61,11 +106,12 @@ function _z_operator(cb::ChebyshevBasis, α::Int, δ::Int, d2)
 end
 
 # χ^σ · ∂_χ^β  acting on P coefficients
-function _χ_operator(lb::LegendreBasis, β::Int, σ::Int, d2)
+function _χ_operator(lb::LegendreBasis, β::Int, σ::Int, d2, d3=nothing)
     β == 0 && return lb.X[σ + 1]
     β == 1 && return lb.X[σ + 1] * lb.D
     β == 2 && return lb.X[σ + 1] * d2
-    error("β = $β > 2 not supported")
+    β == 3 && d3 !== nothing && return lb.X[σ + 1] * d3
+    error("β = $β not supported (max 3 with d3 operator)")
 end
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -123,6 +169,10 @@ function assemble_system(K::PDECoefficients, basis::SpectralBasis, a::Float64)
     cheb_d2 = _cheb_d2(basis.cheb)
     leg_d2  = _leg_d2(basis.leg)
 
+    # Build d3 operator only if needed (any β=3 terms)
+    needs_d3 = any(any(β == 3 for ((_, _, _, _, β, _), _) in eq) for eq in K.equations)
+    leg_d3 = needs_d3 ? _leg_d3(basis.leg, leg_d2) : nothing
+
     for k in 1:10
         isempty(K.equations[k]) && continue
         row_off = (k - 1) * bs
@@ -130,7 +180,7 @@ function assemble_system(K::PDECoefficients, basis::SpectralBasis, a::Float64)
         for ((γ, δ, σ, α, β, j), K_val) in K.equations[k]
             iszero(K_val) && continue
             Oz = _z_operator(basis.cheb, α, δ, cheb_d2)
-            Oχ = _χ_operator(basis.leg, β, σ, leg_d2)
+            Oχ = _χ_operator(basis.leg, β, σ, leg_d2, leg_d3)
             _scatter!(Ds[γ + 1], ComplexF64(K_val), Oz, Oχ,
                       row_off, (j - 1) * bs, sz)
         end

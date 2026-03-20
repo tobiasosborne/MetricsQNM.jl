@@ -1,0 +1,1 @@
+/home/tobias/Projects/MetricsQNM.jl/papers/2406.11986_src/Supplementary_materials.nb

@@ -90,11 +90,11 @@ function test_single(a::Float64, N::Int, m::Int; parity::Symbol=:polar, verbose:
     end
     flush(stdout)
 
-    # Step 4: Build D̃⁽¹⁾ correction system
-    println("\n[5/5] Building sGB correction D̃⁽¹⁾..."); flush(stdout)
+    # Step 4: Build D̃⁽¹⁾ correction system via Galerkin assembly
+    println("\n[5/5] Building sGB correction D̃⁽¹⁾ (Galerkin)..."); flush(stdout)
     t0 = time()
-    sys_corr = build_sgb_correction_system(a, N, m, bg, ComplexF64(ω0);
-                                            csc=csc, verbose=true)
+    sys_corr = build_sgb_galerkin(a, N, m, bg, ComplexF64(ω0);
+                                   csc=csc, verbose=true)
     @printf("  Correction system: %.1fs  size=%s\n", time() - t0, size(sys_corr.D0))
     flush(stdout)
 

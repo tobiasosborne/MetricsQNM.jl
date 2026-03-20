@@ -65,4 +65,7 @@ include("sgb_linearize.jl")
 # ── sGB eigenvalue perturbation solver ──────────────────────────────────────
 include("sgb_perturbation.jl")
 
+# ── sGB numerical Galerkin assembly ──────────────────────────────────────────
+include("sgb_galerkin.jl")
+
 end
