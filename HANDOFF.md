@@ -23,7 +23,8 @@ Key insight: the QEP solver (not Newton-Raphson) is the production method. It fi
 | **sGB linearization** (compiled correction evaluator) | **DONE** | `sgb_linearize.jl` — 10 compiled equations, ~6s/point after JIT |
 | **Eigenvalue perturbation solver** | **DONE** | `sgb_perturbation.jl` — `solve_sgb_perturbation(sys_corr, ω0, v0, J)` |
 | **β=3 assembly extension** | **DONE** | `assembly.jl` — `_leg_d3` for 3rd χ-derivative |
-| **D̃⁽¹⁾ assembly** | **IN PROGRESS** | `sgb_galerkin.jl` — pipeline runs, fitting not yet converged |
+| **D̃⁽¹⁾ assembly (numerical)** | **ABANDONED** | `sgb_galerkin.jl` — polynomial fitting failed (C[k,d] not polynomial) |
+| **D̃⁽¹⁾ assembly (exact SparsePoly)** | **IN PROGRESS** | `sgb_symbolic_pipeline.jl` — Phase 2-3 work, awaiting full run completion |
 | **End-to-end test** | **PARTIAL** | `test/test_sgb_e2e.jl` runs, ω₁ = O(1) but not converged |
 
 ## What the paper actually does (deep review 2026-03-20)
@@ -65,6 +66,30 @@ This means C[k,d] is NOT polynomial in r, NOT polynomial in z, and NOT rational 
 2. **z-space monomial Vandermonde fit**: C[k,d](z, χ) is smooth on [-1,1] but NOT polynomial in z (the rational structure of H_i introduces 1/(1+z)^n terms). Fit error ~1e8, ω₁ does not converge with increasing grid size.
 
 3. **z-space Chebyshev interpolation → monomial**: Same issue — the Chebyshev expansion converges but the monomial conversion amplifies high-degree coefficients. ω₁ unstable.
+
+## Exact SparsePoly extraction — STATUS (2026-03-20)
+
+**Path B is implemented and partially tested.** The pipeline runs end-to-end but hasn't completed a full run yet.
+
+### What's done:
+1. **DenomSig extended** with 4th field `t` for r-power tracking (backward-compat, GR still 11.9 digits at N=8)
+2. **SparsePoly differentiation** — exact `differentiate(p, var_idx)` function
+3. **H_i → 24 RatPoly** — `load_H_ratpolys(a)` parses Mathematica notebook, converts to SparsePoly, differentiates symbolically. Values match numerical to ~1e-16, derivatives are now EXACT (vs O(ε²) finite diff before)
+4. **c_{k,d,p} probing** — `extract_sgb_coefficients_symbolic(a)` double-probes sGB equations: 203 non-zero (k,d) pairs, 1165 non-zero (k,d,p) triples (~93s)
+5. **Multiply + accumulate** — `combine_sgb_K` multiplies c_{k,d,p} × H_p in RatPoly land, clears denominators, ω-decomposes. First 80/203 pairs ran: ~4000-6600 poly terms, clearing P≤5,Q≤4,S=1,T≤67
+6. **Full pipeline** — `build_sgb_system_bespoke(a, N, m)` wires everything through _r_to_z + assemble_system
+
+### What's NOT done:
+- Full Phase 3 run hasn't completed yet (~25 min estimated, interrupted)
+- End-to-end ω₁ not yet computed with new pipeline
+- Need to update test/test_sgb_e2e.jl to use `build_sgb_system_bespoke`
+- Performance: Phase 3 may need optimization (sequential is safe but ~7s per (k,d) pair)
+
+### Next steps:
+1. Run `build_sgb_system_bespoke(0.5, 4, 2; verbose=true)` to completion
+2. Compute ω₁ and compare to Table I of 2406.11986
+3. If ω₁ wrong: only Source 1 is implemented (Sources 2-4 still missing)
+4. If ω₁ converges with N: success for Source 1 contribution
 
 ### The correct path forward
 
@@ -153,7 +178,8 @@ src/
   sgb_background.jl          — Parse H₁-H₄, ϑ from Mathematica + derivative evaluator
   sgb_linearize.jl           — sGB correction: compile + extract + build_sgb_correction_system
   sgb_perturbation.jl        — Eigenvalue perturbation solver (Eq. 111)
-  sgb_galerkin.jl            — Numerical Galerkin assembly (in progress)
+  sgb_galerkin.jl            — Numerical Galerkin assembly (abandoned — C[k,d] not polynomial)
+  sgb_symbolic_pipeline.jl   — Exact SparsePoly K^(η=1) extraction (IN PROGRESS)
   [dtilde.jl, factored_assembly.jl] — earlier D̃ approaches (reference)
   [poly_extract.jl, zspace_extract.jl, pipeline.jl] — dead ends (kept for reference)
 test/
@@ -181,11 +207,11 @@ csc = compile_sgb_correction(2; verbose=true) # → CompiledSGBCorrection (one-t
 C = extract_sgb_coefficients_complex(csc, r, χ, ω, a, hp)  # → 10×40 complex matrix
 C0, C1, C2 = separate_sgb_omega(csc, r, χ, a, hp)  # → ω-separated coefficients
 
-# D̃⁽¹⁾ assembly (NEW — numerical Galerkin, in progress)
-sys_corr = build_sgb_galerkin(a, N, m, bg, ω0; csc=csc, N_z=20, N_χ=12)
+# D̃⁽¹⁾ assembly (NEW — exact SparsePoly, in progress)
+sys_corr = build_sgb_system_bespoke(a, N, m; verbose=true)
 
-# D̃⁽¹⁾ assembly (OLD — collocation, broken, kept for reference)
-sys_corr = build_sgb_correction_system(a, N, m, bg, ω0; csc=csc)
+# D̃⁽¹⁾ assembly (OLD — numerical Galerkin, abandoned: C[k,d] not polynomial)
+sys_corr = build_sgb_galerkin(a, N, m, bg, ω0; csc=csc, N_z=20, N_χ=12)
 
 # Perturbation solve
 ω1 = solve_sgb_perturbation(sys_corr, ω0, v0, J)   # → ω⁽¹⁾ ∈ ℂ
