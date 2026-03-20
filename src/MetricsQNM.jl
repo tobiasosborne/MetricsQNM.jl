@@ -68,4 +68,7 @@ include("sgb_perturbation.jl")
 # ── sGB numerical Galerkin assembly ──────────────────────────────────────────
 include("sgb_galerkin.jl")
 
+# ── sGB exact symbolic extraction (SparsePoly CAS) ──────────────────────────
+include("sgb_symbolic_pipeline.jl")
+
 end
