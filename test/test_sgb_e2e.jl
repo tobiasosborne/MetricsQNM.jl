@@ -73,7 +73,7 @@ function test_single(a::Float64, N::Int, m::Int; parity::Symbol=:polar, verbose:
     # Step 3: Build D̃⁽¹⁾ correction system via exact SparsePoly extraction
     println("\n[3/4] Building sGB correction D̃⁽¹⁾ (exact SparsePoly)..."); flush(stdout)
     t0 = time()
-    sys_corr = build_sgb_system_bespoke(a, N, m; verbose=true)
+    sys_corr, _ = build_sgb_system_bespoke(a, N, m; verbose=true)
     normalize_system!(sys_corr, gr_norm_factors)  # Apply GR normalization to D̃⁽¹⁾
     @printf("  Correction system: %.1fs  size=%s\n", time() - t0, size(sys_corr.D0))
     flush(stdout)

@@ -562,13 +562,18 @@ end
 # ═══════════════════════════════════════════════════════════════════════════════
 
 """
-    build_system_bespoke(a, N, m; P=3, Q=1, S=1, verbose=false) → METRICSSystem
+    build_system_bespoke(a, N, m; P=3, Q=1, S=1, d_max_override=nothing, verbose=false)
 
 Build D̃₀, D̃₁, D̃₂ via bespoke SparsePoly G extraction + r→z transform + assembly.
 Fast: ~5s total for extraction (vs minutes with simplify_fractions).
+
+If `d_max_override` is provided, use it instead of the naturally computed d_max.
+This is needed for sGB perturbation theory: D̃⁽⁰⁾ and D̃⁽¹⁾ must share the
+same d_max (same polynomial-space weighting in the Galerkin projection).
 """
 function build_system_bespoke(a::Float64, N::Int, m::Int;
                                P::Int=3, Q::Int=1, S::Int=1,
+                               d_max_override::Union{Nothing,Int}=nothing,
                                verbose::Bool=false)
     rp = r_plus(a)
 
@@ -589,7 +594,12 @@ function build_system_bespoke(a::Float64, N::Int, m::Int;
             d_max = max(d_max, δ)
         end
     end
-    verbose && (println("  Max r-degree: $d_max"); flush(stdout))
+
+    if d_max_override !== nothing
+        d_max_override < d_max && @warn "d_max_override=$d_max_override < natural d_max=$d_max"
+        d_max = max(d_max, d_max_override)
+    end
+    verbose && (println("  Max r-degree: $d_max$(d_max_override !== nothing ? " (override)" : "")"); flush(stdout))
 
     verbose && (println("Transforming r → z (d_max=$d_max)..."); flush(stdout))
     K0_z = _r_to_z(K0_r, rp, d_max)
@@ -597,7 +607,7 @@ function build_system_bespoke(a::Float64, N::Int, m::Int;
     K2_z = _r_to_z(K2_r, rp, d_max)
 
     verbose && (println("Assembling D̃ matrices (N=$N)..."); flush(stdout))
-    basis = spectral_basis(N, m)
+    basis = spectral_basis(N, m; max_delta=d_max)
     D0 = assemble_system(K0_z, basis, a).D0
     D1 = assemble_system(K1_z, basis, a).D0
     D2 = assemble_system(K2_z, basis, a).D0

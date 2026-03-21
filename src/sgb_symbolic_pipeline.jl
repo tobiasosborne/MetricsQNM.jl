@@ -203,67 +203,135 @@ end
 # ═══════════════════════════════════════════════════════════════════════════════
 
 """
-    build_sgb_system_bespoke(a, N, m; verbose=false) → METRICSSystem
+    build_sgb_system_bespoke(a, N, m; epsilon, verbose) → (METRICSSystem, d_max)
 
-Build D̃⁽¹⁾ correction matrices via exact symbolic K^(η=1) extraction.
-Uses the SparsePoly CAS to extract exact polynomial coefficients from
-the sGB correction equations, replacing the failed numerical Galerkin approach.
+Build D̃⁽¹⁾ correction matrices via per-a-order exact SparsePoly extraction.
 
-Returns a METRICSSystem with D₀⁽¹⁾, D₁⁽¹⁾, D₂⁽¹⁾ matrices.
+The H_i background is a power series in a²: H_i = Σ_k a^{2k} H_i^{(2k)}(r,χ).
+Each a-order has moderate r-denominators (den.t ≈ 2k+5). Processing per-order
+avoids the LCD d_max inflation (80→~15) that occurs when summing all orders.
+
+Each a-order is processed through: c_{k,d,p} × H_p^{(2k)} → K_r → K_z → D̃.
+The resulting D̃ matrices are summed with a^{2k} weights.
+
+Returns `(sys, d_max)` where d_max is the shared d_max used across all orders.
+The caller must build the GR system with the same d_max for perturbation theory.
 """
 function build_sgb_system_bespoke(a::Float64, N::Int, m::Int;
+                                   epsilon::Float64=1e-14,
                                    verbose::Bool=false)
-    verbose && (println("Building sGB D̃⁽¹⁾ via exact SparsePoly extraction..."); flush(stdout))
+    verbose && (println("Building sGB D̃⁽¹⁾ via per-a-order exact SparsePoly..."); flush(stdout))
     t0_total = time()
 
     rp = r_plus(a)
 
-    # Phase 1: Load H_i as RatPoly
-    H_ratpolys = load_H_ratpolys(a; verbose)
+    # Phase 1: Load H_i as per-a-order RatPoly
+    H_per_order, a_powers = load_H_ratpolys_per_order(; verbose)
+    n_orders_total = length(H_per_order)
 
-    # Phase 2: Extract c_{k,d,p} via double probing
+    # Truncate a-series: skip orders where a^{a_pow} < epsilon
+    n_a_max = n_orders_total
+    for (oi, a_pow) in enumerate(a_powers)
+        if a_pow > 0 && abs(a)^a_pow < epsilon
+            n_a_max = oi - 1
+            break
+        end
+    end
+    if verbose
+        trunc_pow = n_a_max < n_orders_total ? a_powers[n_a_max + 1] : a_powers[end]
+        trunc_val = n_a_max < n_orders_total ? abs(a)^trunc_pow : 0.0
+        @printf("  Retaining %d/%d a-orders (first dropped: a^%d ≈ %.1e)\n",
+                n_a_max, n_orders_total, trunc_pow, trunc_val)
+        flush(stdout)
+    end
+
+    # Verification: check per-order splitting matches original
+    if verbose
+        print("  Verifying per-order splitting... "); flush(stdout)
+        err = verify_H_ratpolys_per_order(H_per_order, a_powers, a; verbose=false)
+        @printf("max rel err = %.2e %s\n", err, err < 1e-10 ? "✓" : "✗ WARNING")
+        flush(stdout)
+    end
+
+    # Phase 2: Extract c_{k,d,p} via double probing (numerical a, same as before)
     coeffs, h_map, n_eqs = extract_sgb_coefficients_symbolic(a; verbose)
 
-    # Build context for Phase 3 (same as used in Phase 2)
+    # Build context for Phase 3
     @variables r chi omega_re omega_im iu_sym
     var_list = Num[r, chi, omega_re, omega_im, iu_sym]
     ctx = SymToPolyCtx(var_list, a)
 
-    # Phase 3: Multiply and accumulate → K0, K1, K2 in r-space
-    K0_r, K1_r, K2_r = combine_sgb_K(coeffs, H_ratpolys, h_map, n_eqs, ctx;
-                                       verbose)
+    # Phase 3: Process each a-order through combine_sgb_K
+    verbose && (println("Phase 3: Processing $n_a_max a-orders..."); flush(stdout))
+    K_r_per_order = Vector{NTuple{3, PDECoefficients}}(undef, n_a_max)
 
-    # Phase 4: r → z transform
-    d_max_0 = maximum(δ for k in 1:n_eqs for ((γ, δ, σ, α, β, j), _) in K0_r.equations[k]; init=0)
-    d_max_1 = maximum(δ for k in 1:n_eqs for ((γ, δ, σ, α, β, j), _) in K1_r.equations[k]; init=0)
-    d_max_2 = maximum(δ for k in 1:n_eqs for ((γ, δ, σ, α, β, j), _) in K2_r.equations[k]; init=0)
-    d_max = max(d_max_0, d_max_1, d_max_2)
-    verbose && (println("  Max r-degree: $d_max"); flush(stdout))
+    for ao = 1:n_a_max
+        t_ao = time()
+        K0_ao, K1_ao, K2_ao = combine_sgb_K(coeffs, H_per_order[ao], h_map,
+                                              n_eqs, ctx; verbose=false)
+        K_r_per_order[ao] = (K0_ao, K1_ao, K2_ao)
 
-    verbose && (println("Transforming r → z (d_max=$d_max)..."); flush(stdout))
-    K0_z = _r_to_z(K0_r, rp, d_max)
-    K1_z = _r_to_z(K1_r, rp, d_max)
-    K2_z = _r_to_z(K2_r, rp, d_max)
-
-    # Phase 5: Assemble D̃ matrices
-    # Compute max z-degree and chi-degree from z-space K coefficients
-    s_max = 0
-    for K in (K0_z, K1_z, K2_z), k in 1:n_eqs
-        for ((γ, δ, σ, α, β, j), _) in K.equations[k]
-            σ > s_max && (s_max = σ)
+        if verbose
+            d_ao = 0
+            for K in (K0_ao, K1_ao, K2_ao), k in 1:n_eqs
+                for ((γ, δ, σ, α, β, j), _) in K.equations[k]
+                    d_ao = max(d_ao, δ)
+                end
+            end
+            n_terms = sum(length(K.equations[k]) for K in (K0_ao, K1_ao, K2_ao) for k in 1:n_eqs)
+            @printf("  a^%d: d_max=%d, %d terms, %.1fs\n",
+                    a_powers[ao], d_ao, n_terms, time() - t_ao)
+            flush(stdout)
         end
     end
-    verbose && (println("Assembling D̃⁽¹⁾ matrices (N=$N, max_delta=$d_max, max_sigma=$s_max)..."); flush(stdout))
-    basis = spectral_basis(N, m; max_delta=d_max, max_sigma=max(s_max, 25))
-    D0 = assemble_system(K0_z, basis, a).D0
-    D1 = assemble_system(K1_z, basis, a).D0
-    D2 = assemble_system(K2_z, basis, a).D0
 
-    sys = METRICSSystem(D0, D1, D2, N, m, a)
-    # NOTE: Do NOT normalize here. The caller must apply the GR normalization
-    # factors via normalize_system!(sys, gr_factors) to ensure D̃⁽¹⁾ uses the
-    # same per-equation scaling as D̃⁽⁰⁾ (required for perturbation theory).
+    # Determine shared d_max and s_max across all retained a-orders
+    d_max = 0
+    s_max = 0
+    for ao = 1:n_a_max
+        for K in K_r_per_order[ao], k in 1:n_eqs
+            for ((γ, δ, σ, α, β, j), _) in K.equations[k]
+                d_max = max(d_max, δ)
+                s_max = max(s_max, σ)
+            end
+        end
+    end
+    verbose && (@printf("  Shared d_max=%d, s_max=%d\n", d_max, s_max); flush(stdout))
+
+    # Phase 4-5: r→z transform + assembly (shared basis for all orders)
+    verbose && (println("Phase 4-5: r→z + assembly (shared d_max=$d_max, N=$N)..."); flush(stdout))
+    basis = spectral_basis(N, m; max_delta=d_max, max_sigma=max(s_max, 25))
+    bs = (N + 1)^2
+
+    D0_total = zeros(ComplexF64, 10 * bs, 6 * bs)
+    D1_total = zeros(ComplexF64, 10 * bs, 6 * bs)
+    D2_total = zeros(ComplexF64, 10 * bs, 6 * bs)
+
+    for ao = 1:n_a_max
+        K0_ao_r, K1_ao_r, K2_ao_r = K_r_per_order[ao]
+
+        K0_ao_z = _r_to_z(K0_ao_r, rp, d_max)
+        K1_ao_z = _r_to_z(K1_ao_r, rp, d_max)
+        K2_ao_z = _r_to_z(K2_ao_r, rp, d_max)
+
+        D0_ao = assemble_system(K0_ao_z, basis, a).D0
+        D1_ao = assemble_system(K1_ao_z, basis, a).D0
+        D2_ao = assemble_system(K2_ao_z, basis, a).D0
+
+        weight = a_powers[ao] == 0 ? 1.0 : a^a_powers[ao]
+        D0_total .+= weight .* D0_ao
+        D1_total .+= weight .* D1_ao
+        D2_total .+= weight .* D2_ao
+
+        if verbose
+            @printf("  a^%d: weight=%.2e, ‖D₀‖=%.2e, ‖D₁‖=%.2e, ‖D₂‖=%.2e\n",
+                    a_powers[ao], weight, norm(D0_ao), norm(D1_ao), norm(D2_ao))
+            flush(stdout)
+        end
+    end
+
+    sys = METRICSSystem(D0_total, D1_total, D2_total, N, m, a)
 
     verbose && (@printf("Total sGB D̃⁽¹⁾ build: %.1fs\n", time() - t0_total); flush(stdout))
-    return sys
+    return sys, d_max
 end

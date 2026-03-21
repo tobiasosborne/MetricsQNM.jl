@@ -503,7 +503,7 @@ end
 #  H_i as RatPoly (for exact symbolic sGB K-coefficient extraction)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-export load_H_ratpolys
+export load_H_ratpolys, load_H_ratpolys_per_order
 
 """
     _differentiate_ratpoly_r(rp::RatPoly) → RatPoly
@@ -613,4 +613,204 @@ function load_H_ratpolys(a::Float64; verbose::Bool=false)
 
     verbose && (@printf("  Total: %.1fs\n", time() - t0); flush(stdout))
     return H_ratpolys
+end
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Per-a-order H_i loading (avoids d_max inflation from LCD)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+"""
+    _split_ratpoly_by_var(rp::RatPoly, var_idx::Int) → Dict{Int, RatPoly}
+
+Split a RatPoly into per-exponent groups for variable `var_idx`.
+Each group has the variable exponent stripped (set to 0) and the r-denominator
+reduced by extracting common r-factors from the numerator.
+
+After symexpr_to_poly with `a` as variable 3, the LCD clearing puts all
+a-orders into one numerator with shared denominator r^{max_t}. Splitting
+recovers per-order r-denominators by finding the minimum r-exponent in
+each a-group and subtracting it.
+"""
+function _split_ratpoly_by_var(rp::RatPoly, var_idx::Int)
+    @assert rp.den.p == 0 && rp.den.q == 0 && rp.den.s == 0 "Split by var only valid for r-only denominators (got p=$(rp.den.p), q=$(rp.den.q), s=$(rp.den.s))"
+    groups = Dict{Int, Dict{ExpVec, Float64}}()
+    for (e, c) in rp.num.terms
+        a_exp = e[var_idx]
+        if !haskey(groups, a_exp)
+            groups[a_exp] = Dict{ExpVec, Float64}()
+        end
+        new_e = ntuple(i -> i == var_idx ? 0 : e[i], N_VARS)
+        groups[a_exp][new_e] = get(groups[a_exp], new_e, 0.0) + c
+    end
+
+    result = Dict{Int, RatPoly}()
+    for (a_exp, terms) in groups
+        isempty(terms) && continue
+        # Find minimum r-exponent (variable 1) to reduce r-denominator
+        min_r = minimum(e[1] for (e, _) in terms)
+        if min_r > 0
+            new_terms = Dict{ExpVec, Float64}()
+            for (e, c) in terms
+                new_terms[ntuple(i -> i == 1 ? e[i] - min_r : e[i], N_VARS)] = c
+            end
+            result[a_exp] = RatPoly(SparsePoly(new_terms),
+                                     DenomSig(rp.den.p, rp.den.q, rp.den.s,
+                                              max(0, rp.den.t - min_r)))
+        else
+            result[a_exp] = RatPoly(SparsePoly(terms), rp.den)
+        end
+    end
+    return result
+end
+
+"""
+    _eval_ratpoly_rchi(rp::RatPoly, r_val, chi_val) → Float64
+
+Evaluate a RatPoly at (r, χ) assuming only variables 1 (r) and 2 (χ) are used,
+and denominator is r^t only (p=q=s=0). For verification purposes.
+"""
+function _eval_ratpoly_rchi(rp::RatPoly, r_val::Float64, chi_val::Float64)
+    @assert rp.den.p == 0 && rp.den.q == 0 && rp.den.s == 0 "eval_ratpoly_rchi only valid for r-only denominators"
+    num_val = 0.0
+    for (e, c) in rp.num.terms
+        num_val += c * r_val^e[1] * chi_val^e[2]
+    end
+    den_val = r_val^rp.den.t
+    return num_val / den_val
+end
+
+"""
+    load_H_ratpolys_per_order(; verbose=false) → (Vector{Vector{RatPoly}}, Vector{Int})
+
+Load H₁-H₄ from the Mathematica notebook as per-a-order RatPolys.
+
+Returns `(H_per_order, a_powers)` where:
+  - `H_per_order[k]`: 24-element Vector{RatPoly} for a-order k
+  - `a_powers[k]`: the a-exponent for order k (e.g., 0, 2, 4, ..., 40)
+
+Each inner vector: [H1, H1_r, H1_χ, H1_rr, H1_χχ, H1_rχ, H2, ..., H4_rχ]
+
+The spin parameter `a` is NOT evaluated. Use `a^a_powers[k]` as weight when
+summing orders downstream. This avoids the LCD d_max inflation (80→~15 per order)
+that occurs when all a-orders are summed before polynomial extraction.
+"""
+function load_H_ratpolys_per_order(; verbose::Bool=false)
+    verbose && (println("Loading H_i as per-a-order RatPoly..."); flush(stdout))
+    t0 = time()
+
+    sections = _load_nb_sections(; verbose=false)
+
+    # Map _a_ to variable index 3 (reusing the ω_re slot, which H_i never uses).
+    # Use a_val=1.0 for SymToPolyCtx so Σ/Δ polys have multi-term structure
+    # and don't accidentally match H_i's monomial r-denominators.
+    @variables _r_ _χ_ _a_ _dummy4 _dummy5
+    var_list = Num[_r_, _χ_, _a_, _dummy4, _dummy5]
+    ctx = SymToPolyCtx(var_list, 1.0)
+
+    # Parse each H_i and split by a-power
+    all_rp_split = Vector{Dict{Int, RatPoly}}(undef, 4)
+    all_a_orders = Set{Int}()
+
+    for i in 1:4
+        verbose && (print("  H$i: parsing... "); flush(stdout))
+        ti = time()
+
+        expr_str = _box_to_str(sections["H$(i)"])
+        body = Meta.parse(expr_str)
+        # Keep _a_ as Symbolics variable (NOT numerical)
+        sym_expr = Base.invokelatest(eval, :(let _r_ = $(Num(_r_)), _χ_ = $(Num(_χ_)),
+                                                 _a_ = $(Num(_a_)),
+                                                 _M_ = 1, _α_ = 1
+                                                 Num($body)
+                                             end))
+
+        verbose && (print("symexpr_to_poly... "); flush(stdout))
+        rp_full = symexpr_to_poly(sym_expr, ctx)
+        cleanup!(rp_full.num; tol=1e-15, relative=true)
+
+        verbose && (print("split... "); flush(stdout))
+        split = _split_ratpoly_by_var(rp_full, 3)  # 3 = a-variable index
+        all_rp_split[i] = split
+        union!(all_a_orders, keys(split))
+
+        verbose && (@printf("%.1fs (%d a-orders, LCD den.t=%d)\n",
+                    time() - ti, length(split), rp_full.den.t); flush(stdout))
+    end
+
+    sorted_orders = sort(collect(all_a_orders))
+    n_orders = length(sorted_orders)
+    verbose && (println("  Total a-orders: $n_orders (a^$(sorted_orders[1])..a^$(sorted_orders[end]))"); flush(stdout))
+
+    # Build per-order RatPolys with derivatives
+    result = Vector{Vector{RatPoly}}(undef, n_orders)
+
+    for (oi, a_pow) in enumerate(sorted_orders)
+        H_order = Vector{RatPoly}(undef, 24)
+
+        for i in 1:4
+            rp_val = get(all_rp_split[i], a_pow, RatPoly(0.0))
+            cleanup!(rp_val.num; tol=1e-15, relative=true)
+
+            rp_dr   = _differentiate_ratpoly_r(rp_val)
+            rp_dchi = _differentiate_ratpoly_chi(rp_val)
+            rp_drr  = _differentiate_ratpoly_r(rp_dr)
+            rp_dchichi = _differentiate_ratpoly_chi(rp_dchi)
+            rp_drchi   = _differentiate_ratpoly_chi(rp_dr)
+
+            for rp in [rp_dr, rp_dchi, rp_drr, rp_dchichi, rp_drchi]
+                cleanup!(rp.num; tol=1e-15, relative=true)
+            end
+
+            offset = (i - 1) * 6
+            H_order[offset + 1] = rp_val
+            H_order[offset + 2] = rp_dr
+            H_order[offset + 3] = rp_dchi
+            H_order[offset + 4] = rp_drr
+            H_order[offset + 5] = rp_dchichi
+            H_order[offset + 6] = rp_drchi
+        end
+
+        if verbose
+            max_t = maximum(H_order[j].den.t for j in 1:24)
+            max_terms = maximum(length(H_order[j].num.terms) for j in 1:24)
+            @printf("  a^%d: max den.t=%d, max terms=%d\n", a_pow, max_t, max_terms)
+            flush(stdout)
+        end
+
+        result[oi] = H_order
+    end
+
+    verbose && (@printf("  Total: %.1fs\n", time() - t0); flush(stdout))
+    return result, sorted_orders
+end
+
+"""
+    verify_H_ratpolys_per_order(H_per_order, a_powers, a; r_test, chi_test, verbose)
+
+Verify per-order splitting by comparing summed per-order evaluation against
+the original `load_H_ratpolys(a)` at test points.
+"""
+function verify_H_ratpolys_per_order(H_per_order::Vector{Vector{RatPoly}},
+                                      a_powers::Vector{Int},
+                                      a::Float64;
+                                      r_test::Float64=5.0,
+                                      chi_test::Float64=0.5,
+                                      verbose::Bool=false)
+    H_ref = load_H_ratpolys(a; verbose=false)
+    max_err = 0.0
+    for j in 1:24
+        ref_val = _eval_ratpoly_rchi(H_ref[j], r_test, chi_test)
+        sum_val = 0.0
+        for (oi, a_pow) in enumerate(a_powers)
+            rp = H_per_order[oi][j]
+            sum_val += a^a_pow * _eval_ratpoly_rchi(rp, r_test, chi_test)
+        end
+        err = abs(sum_val - ref_val)
+        rel = ref_val == 0 ? err : err / abs(ref_val)
+        max_err = max(max_err, rel)
+        verbose && rel > 1e-10 && @printf("  H[%d] at (%.1f,%.1f): ref=%.6e sum=%.6e rel=%.2e\n",
+                                           j, r_test, chi_test, ref_val, sum_val, rel)
+    end
+    verbose && @printf("  Max relative error: %.2e\n", max_err)
+    return max_err
 end

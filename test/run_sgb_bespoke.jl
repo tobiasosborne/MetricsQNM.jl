@@ -1,6 +1,6 @@
 #!/usr/bin/env julia
-# Quick runner: sGB D̃⁽¹⁾ via exact SparsePoly pipeline + perturbation solve.
-# Smaller N first for validation, then optionally sweep N for convergence.
+# Quick runner: sGB D̃⁽¹⁾ via per-a-order exact SparsePoly pipeline + perturbation solve.
+# Uses per-a-order H_i loading to avoid d_max inflation (80→~15 per order).
 
 using MetricsQNM
 using LinearAlgebra
@@ -13,15 +13,29 @@ const TABLE_I = [
     (0.3,    0.09087,     0.00782,    -0.36419,    -0.04236),
 ]
 
-function run_bespoke(a::Float64, N::Int, m::Int; parity::Symbol=:polar)
+function run_bespoke(a::Float64, N::Int, m::Int; parity::Symbol=:polar,
+                     epsilon::Float64=1e-14)
     println("=" ^ 70)
-    @printf("sGB bespoke pipeline: a=%.3f, N=%d, m=%d, parity=%s\n", a, N, m, parity)
+    @printf("sGB per-a-order pipeline: a=%.3f, N=%d, m=%d, parity=%s\n", a, N, m, parity)
     println("=" ^ 70); flush(stdout)
 
-    # ── GR solution ──
-    println("\n[1/3] GR system + QEP solve..."); flush(stdout)
+    # ── Step 1: sGB D̃⁽¹⁾ (build first to determine shared d_max) ──
+    println("\n[1/3] Building sGB D̃⁽¹⁾ (per-a-order exact SparsePoly)..."); flush(stdout)
     t0 = time()
-    sys_gr, gr_norm_factors = build_system_bespoke(a, N, m; verbose=false)
+    sys_corr, d_max_sgb = build_sgb_system_bespoke(a, N, m; epsilon, verbose=true)
+    @printf("  D̃⁽¹⁾ built: %.1fs  d_max=%d  size=%s\n",
+            time() - t0, d_max_sgb, size(sys_corr.D0)); flush(stdout)
+
+    @printf("  ‖D₀⁽¹⁾‖ = %.4e\n", norm(sys_corr.D0))
+    @printf("  ‖D₁⁽¹⁾‖ = %.4e\n", norm(sys_corr.D1))
+    @printf("  ‖D₂⁽¹⁾‖ = %.4e\n", norm(sys_corr.D2)); flush(stdout)
+
+    # ── Step 2: GR solution (with shared d_max for perturbation compatibility) ──
+    println("\n[2/3] GR system + QEP solve (d_max=$d_max_sgb)..."); flush(stdout)
+    t0 = time()
+    sys_gr, gr_norm_factors = build_system_bespoke(a, N, m;
+                                                    d_max_override=d_max_sgb,
+                                                    verbose=false)
     @printf("  GR system built: %.1fs  size=%s\n", time() - t0, size(sys_gr.D0)); flush(stdout)
 
     ω_leaver = leaver_qnm(a; l=2, m=m, n=0)
@@ -49,20 +63,12 @@ function run_bespoke(a::Float64, N::Int, m::Int; parity::Symbol=:polar)
 
     J, _, _ = compute_jacobian(sys_gr, ComplexF64(ω0), v0; parity=parity)
     @printf("  J: %s, cond ≈ %.1e\n", size(J), cond(J))
-    @printf("  Step 1 total: %.1fs\n", time() - t0); flush(stdout)
+    @printf("  Step 2 total: %.1fs\n", time() - t0); flush(stdout)
 
-    # ── sGB D̃⁽¹⁾ via exact SparsePoly ──
-    println("\n[2/3] Building sGB D̃⁽¹⁾ (exact SparsePoly)..."); flush(stdout)
-    t0 = time()
-    sys_corr = build_sgb_system_bespoke(a, N, m; verbose=true)
-    normalize_system!(sys_corr, gr_norm_factors)  # Apply GR normalization to D̃⁽¹⁾
-    @printf("  D̃⁽¹⁾ built: %.1fs  size=%s\n", time() - t0, size(sys_corr.D0)); flush(stdout)
+    # Apply GR normalization to sGB correction
+    normalize_system!(sys_corr, gr_norm_factors)
 
-    @printf("  ‖D₀⁽¹⁾‖ = %.4e\n", norm(sys_corr.D0))
-    @printf("  ‖D₁⁽¹⁾‖ = %.4e\n", norm(sys_corr.D1))
-    @printf("  ‖D₂⁽¹⁾‖ = %.4e\n", norm(sys_corr.D2)); flush(stdout)
-
-    # ── Perturbation solve ──
+    # ── Step 3: Perturbation solve ──
     println("\n[3/3] Perturbation solve..."); flush(stdout)
     ω1 = solve_sgb_perturbation(sys_corr, ComplexF64(ω0), v0, J)
     @printf("  ω⁽¹⁾ = %.6f %+.6fi\n", real(ω1), imag(ω1)); flush(stdout)
@@ -78,15 +84,15 @@ function run_bespoke(a::Float64, N::Int, m::Int; parity::Symbol=:polar)
     end
     flush(stdout)
 
-    return (ω0=ω0, ω1=ω1, sys_corr=sys_corr, J=J, v0=v0)
+    return (ω0=ω0, ω1=ω1, sys_corr=sys_corr, J=J, v0=v0, d_max=d_max_sgb)
 end
 
 # ── Main ──
 if abspath(PROGRAM_FILE) == @__FILE__
     a = parse(Float64, get(ARGS, 1, "0.3"))
-    N = parse(Int, get(ARGS, 2, "4"))
+    N = parse(Int, get(ARGS, 2, "8"))
 
-    println("Starting sGB bespoke pipeline..."); flush(stdout)
+    println("Starting sGB per-a-order pipeline..."); flush(stdout)
     println("Julia threads: $(Threads.nthreads())"); flush(stdout)
     println(); flush(stdout)
 

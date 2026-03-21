@@ -115,30 +115,51 @@ The `_r_to_z` transform multiplies each equation by `(1-z)^d_max` to make r-poly
 
 **Evidence**: H₁ in notebook has a^{2k} for k=0..19, r-powers up to r^47 (TOTAL across all orders). Individual orders have much lower r-powers. The paper converges at N=20-25, confirming effective d_max ≈ 20-30 (not 80).
 
-### Implementation plan: per-a-order pipeline
+### Per-a-order pipeline — IMPLEMENTED (2026-03-21)
 
-1. Modify `load_H_ratpolys` to return `Vector{Vector{RatPoly}}` — outer index is a-order, inner is the 24 derivative components
-2. Modify `combine_sgb_K` to process per-a-order: for each a^{2k}, multiply c_{k,d,p} × H_p^{(2k)}, clear, ω-decompose
-3. Assembly per-a-order: D̃^{(2k)} = assemble(K^{(2k)}), each with d_max ≈ 15-20
-4. Sum: D̃⁽¹⁾ = Σ_k a^{2k} D̃^{(2k)} — simple matrix sum with numerical a
-5. Use SAME d_max as GR for each a-order → perturbation theory is valid
+1. ✅ `load_H_ratpolys_per_order()` — parses H_i with `a` as SparsePoly variable (slot 3), splits by a-exponent via `_split_ratpoly_by_var`, reduces per-order r-denominators
+2. ✅ `combine_sgb_K` called once per a-order with that order's 24 H_ratpolys
+3. ✅ Assembly per-a-order with shared d_max across all retained orders
+4. ✅ D̃⁽¹⁾ = Σ_k a^{2k} D̃^{(2k)} — matrix sum with numerical a weights
+5. ✅ GR system rebuilt with `d_max_override` to match sGB shared d_max
+6. ✅ Truncation: a-orders with `a^{2k} < epsilon` are dropped (default epsilon=1e-14)
+7. ✅ Verification: `verify_H_ratpolys_per_order` checks per-order sum matches original
 
-This preserves the a-series structure that the paper uses, avoids the d_max inflation, and keeps everything analytical.
+**Key design decisions:**
+- Variable slot 3 reused: `a` during H_i parsing → stripped to 0 after splitting → `ω_re` during combine
+- `SymToPolyCtx(var_list, 1.0)` dummy for H_i conversion (Σ/Δ polys don't match r-only denoms)
+- Shared d_max across all retained orders AND GR system (required for consistent Galerkin weighting)
+- `c_{k,d,p}` stays numerical in `a` — only H_p needs per-order splitting
 
-### Previous incorrect paths (documented for reference)
+### First end-to-end results (2026-03-21, a=0.3, epsilon=1e-14, N=8):
 
-The assembled D̃⁽¹⁾ matrix approach is fundamentally flawed for perturbation theory because the sGB correction requires different denominator clearing than GR. Instead, compute the source vector D̃⁽¹⁾(ω₀)·v₀ via **numerical quadrature**:
+Per-order d_max values: 24, 26, 30, 33, 35, 39, 42, 46, 50, 53, 56, 60, 63, 66.
+Pattern: d_max ≈ 24 + 3k (k = a-order index). The base d_max=24 comes from
+the sGB correction c_{k,d,p} having high r-degrees from Kerr background.
 
-1. Evaluate v₀ (spectral expansion) at Gauss-Chebyshev × Gauss-Legendre points
-2. At each point, evaluate the sGB correction using the compiled evaluator
-3. Apply the GR clearing factor Σ³Δ¹(1-χ²)(1-z)^9 and normalization S_k
-4. Project onto spectral test basis → gives source vector compatible with J
+**Shared d_max=66 with N=8 is catastrophically under-resolved:**
+- GR ω⁰ shifted by 0.046 (should match Leaver to 1e-14)
+- ‖D‖ = O(10^26-38), cond(J) = 1.7e+18
+- ω₁ = O(10^9) (garbage)
 
-This avoids polynomial clearing of D̃⁽¹⁾ entirely. The compiled evaluator already works (6s/point after JIT, 0.07s after warm-up).
+**Practical parameter choices** (a=0.3):
+| epsilon | n_a_max | shared d_max | min N needed |
+|---------|---------|-------------|-------------|
+| 1e-14   | 14      | ~66         | ~65         |
+| 1e-4    | 4       | ~33         | ~30         |
+| 1e-3    | 3       | ~30         | ~25         |
+| 1e-2    | 2       | ~26         | ~22         |
+
+The paper converges at N=20-25, suggesting they use effective truncation of ~3-5 a-orders.
+
+**1.5% verification error** in per-order H_i splitting (at r=5, χ=0.5):
+Likely from different Symbolics simplification paths when `a` is symbolic vs.
+numerical. Need investigation — may require using the same Symbolics path
+for both, or tighter cleanup tolerances.
 
 ### Next steps:
-1. **Implement numerical source vector** via quadrature (new function in sgb_perturbation.jl)
-2. **N-convergence test** with numerical source
+1. **Investigate 1.5% verification error** — check if cleanup tolerance or Symbolics simplification
+2. **Run with epsilon=1e-3, N=25** — should give manageable d_max ≈ 30
 3. **Implement Sources 2-4** (see roadmap below)
 4. **Parallelize Phase 3**: gather/merge pattern from GR pipeline could give ~4x speedup
 
@@ -246,6 +267,7 @@ reference/
 ```julia
 # GR pipeline
 sys, nf = build_system_bespoke(a, N, m)      # → (METRICSSystem, norm_factors)
+sys, nf = build_system_bespoke(a, N, m; d_max_override=20)  # for sGB compat
 result = solve_qep_with_vectors(sys; ω₀=ω_L) # → (eigenvalues, eigenvectors)
 J, free, pinned = compute_jacobian(sys, ω, v) # → Jacobian for perturbation theory
 
@@ -258,8 +280,10 @@ csc = compile_sgb_correction(2; verbose=true) # → CompiledSGBCorrection (one-t
 C = extract_sgb_coefficients_complex(csc, r, χ, ω, a, hp)  # → 10×40 complex matrix
 C0, C1, C2 = separate_sgb_omega(csc, r, χ, a, hp)  # → ω-separated coefficients
 
-# D̃⁽¹⁾ assembly (NEW — exact SparsePoly, in progress)
-sys_corr = build_sgb_system_bespoke(a, N, m; verbose=true)
+# D̃⁽¹⁾ assembly (per-a-order exact SparsePoly)
+sys_corr, d_max = build_sgb_system_bespoke(a, N, m; epsilon=1e-14, verbose=true)
+# H_i per-a-order loading
+H_per_order, a_powers = load_H_ratpolys_per_order(; verbose=true)
 
 # D̃⁽¹⁾ assembly (OLD — numerical Galerkin, abandoned: C[k,d] not polynomial)
 sys_corr = build_sgb_galerkin(a, N, m, bg, ω0; csc=csc, N_z=20, N_χ=12)
