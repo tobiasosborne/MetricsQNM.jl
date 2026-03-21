@@ -222,12 +222,15 @@ end
 function _r_to_z(K_r::PDECoefficients, rp::Float64, d_max::Int)
     K_z = PDECoefficients([Dict{NTuple{6,Int}, ComplexF64}() for _ in 1:10],
                           fill(d_max, 10), fill(20, 10))
+    # Precompute binomial coefficients as Float64 via BigInt to avoid Int64 overflow
+    # (sGB correction has d_max up to 80; binomial(77,22) > typemax(Int64))
+    binom = [Float64(binomial(big(n), big(k))) for n in 0:d_max, k in 0:d_max]
     for k in 1:10
         for ((γ, δ, σ, α, β, j), G_val) in K_r.equations[k]
             δ > d_max && continue
             coeff = (2rp)^δ * G_val
             for jz in 0:(d_max - δ)
-                K_val = coeff * binomial(d_max - δ, jz)
+                K_val = coeff * binom[d_max - δ + 1, jz + 1]
                 abs(K_val) < 1e-15 && continue
                 key = (0, jz, σ, α, β, j)
                 K_z.equations[k][key] = get(K_z.equations[k], key, 0.0im) + K_val
@@ -506,15 +509,18 @@ end
 # ═══════════════════════════════════════════════════════════════════════════════
 
 """
-    normalize_system!(sys::METRICSSystem)
+    normalize_system!(sys::METRICSSystem) → (sys, factors)
 
 Per-equation normalization: for each of the 10 field equations, scale the
 corresponding rows of D₀, D₁, D₂ so the largest coefficient has modulus 1.
 Mandatory for numerical stability (cf. arxiv:2312.08435, lines 491-492).
+
+Returns the system and the 10-element vector of scale factors used.
 """
 function normalize_system!(sys::METRICSSystem)
     N = sys.N
     bs = (N + 1)^2
+    factors = Vector{Float64}(undef, 10)
     for k in 1:10
         rows = ((k-1)*bs+1):(k*bs)
         scale = max(
@@ -522,13 +528,33 @@ function normalize_system!(sys::METRICSSystem)
             maximum(abs, view(sys.D1, rows, :); init=0.0),
             maximum(abs, view(sys.D2, rows, :); init=0.0)
         )
+        factors[k] = scale
         if scale > 0
             sys.D0[rows,:] ./= scale
             sys.D1[rows,:] ./= scale
             sys.D2[rows,:] ./= scale
         end
     end
-    sys
+    return sys, factors
+end
+
+"""
+    normalize_system!(sys::METRICSSystem, factors::Vector{Float64}) → sys
+
+Apply pre-computed per-equation normalization factors to a system.
+Use this to ensure D̃⁽¹⁾ uses the SAME normalization as D̃⁽⁰⁾ in perturbation theory.
+"""
+function normalize_system!(sys::METRICSSystem, factors::Vector{Float64})
+    N = sys.N
+    bs = (N + 1)^2
+    for k in 1:10
+        factors[k] > 0 || continue
+        rows = ((k-1)*bs+1):(k*bs)
+        sys.D0[rows,:] ./= factors[k]
+        sys.D1[rows,:] ./= factors[k]
+        sys.D2[rows,:] ./= factors[k]
+    end
+    return sys
 end
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -577,9 +603,9 @@ function build_system_bespoke(a::Float64, N::Int, m::Int;
     D2 = assemble_system(K2_z, basis, a).D0
 
     sys = METRICSSystem(D0, D1, D2, N, m, a)
-    normalize_system!(sys)
+    sys, norm_factors = normalize_system!(sys)
     verbose && (println("  Per-equation normalization applied"); flush(stdout))
-    sys
+    return sys, norm_factors
 end
 
 """
@@ -614,7 +640,7 @@ function sweep_N(a::Float64, m::Int, N_range;
         D1 = assemble_system(K1_z, basis, a).D0
         D2 = assemble_system(K2_z, basis, a).D0
         sys = METRICSSystem(D0, D1, D2, N, m, a)
-        normalize_system!(sys)
+        sys, _ = normalize_system!(sys)
         systems[N] = sys
     end
     verbose && (println("  Built $(length(systems)) systems (N=$(first(N_range))..$(last(N_range)))"); flush(stdout))

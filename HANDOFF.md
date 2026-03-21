@@ -69,27 +69,78 @@ This means C[k,d] is NOT polynomial in r, NOT polynomial in z, and NOT rational 
 
 ## Exact SparsePoly extraction — STATUS (2026-03-20)
 
-**Path B is implemented and partially tested.** The pipeline runs end-to-end but hasn't completed a full run yet.
+**Path B runs end-to-end.** First ω₁ computed 2026-03-21.
 
 ### What's done:
 1. **DenomSig extended** with 4th field `t` for r-power tracking (backward-compat, GR still 11.9 digits at N=8)
 2. **SparsePoly differentiation** — exact `differentiate(p, var_idx)` function
 3. **H_i → 24 RatPoly** — `load_H_ratpolys(a)` parses Mathematica notebook, converts to SparsePoly, differentiates symbolically. Values match numerical to ~1e-16, derivatives are now EXACT (vs O(ε²) finite diff before)
-4. **c_{k,d,p} probing** — `extract_sgb_coefficients_symbolic(a)` double-probes sGB equations: 203 non-zero (k,d) pairs, 1165 non-zero (k,d,p) triples (~93s)
-5. **Multiply + accumulate** — `combine_sgb_K` multiplies c_{k,d,p} × H_p in RatPoly land, clears denominators, ω-decomposes. First 80/203 pairs ran: ~4000-6600 poly terms, clearing P≤5,Q≤4,S=1,T≤67
+4. **c_{k,d,p} probing** — `extract_sgb_coefficients_symbolic(a)` double-probes sGB equations: 203 non-zero (k,d) pairs, 1165 non-zero (k,d,p) triples (~63s)
+5. **Multiply + accumulate** — `combine_sgb_K` multiplies c_{k,d,p} × H_p in RatPoly land, clears denominators, ω-decomposes. 203 pairs: ~975-4417 poly terms, clearing P≤11,Q≤4,S=1,T≤57
 6. **Full pipeline** — `build_sgb_system_bespoke(a, N, m)` wires everything through _r_to_z + assemble_system
+7. **test_sgb_e2e.jl updated** to use `build_sgb_system_bespoke`
+8. **test/run_sgb_bespoke.jl** — lean runner script for quick validation
 
-### What's NOT done:
-- Full Phase 3 run hasn't completed yet (~25 min estimated, interrupted)
-- End-to-end ω₁ not yet computed with new pipeline
-- Need to update test/test_sgb_e2e.jl to use `build_sgb_system_bespoke`
-- Performance: Phase 3 may need optimization (sequential is safe but ~7s per (k,d) pair)
+### First ω₁ result (2026-03-21, a=0.3, N=4, Source 1 only):
+```
+ω⁽⁰⁾ = 0.4195266818 - 0.0877292719i  (Leaver match: 3.18e-14)
+ω⁽¹⁾ = 4.678124 - 3.375967i           (Source 1 only)
+Paper: ω⁽¹⁾ = -0.364190 - 0.042360i   (all 4 sources)
+```
+ω₁ is O(1), consistent with earlier numerical Galerkin attempts. The paper's much smaller value suggests near-cancellation between Sources 1-4.
+
+### Bugs fixed in this session:
+1. **`binomial` Int64 overflow** in `_r_to_z`: sGB has d_max=80, binomial(77,22) > typemax(Int64). Fixed via BigInt precomputation.
+2. **`spectral_basis` hardcoded max_delta=25**: sGB needs z-degree up to 80 and chi-degree up to 57. Fixed by parameterizing `chebyshev_basis(N; max_delta)` and `legendre_basis(N, m; max_sigma)`.
+3. **`reduce_ratpoly` performance**: r-power stripping via O(n) exponent subtraction instead of O(24×T×n²) polynomial division. Phase 3 speedup: 2405s → 1709s (29%).
+
+### Critical finding: d_max incompatibility (2026-03-21)
+
+The `_r_to_z` transform multiplies each equation by `(1-z)^d_max` to make r-polynomials into z-polynomials. GR uses d_max=9, sGB uses d_max=80. These are **fundamentally incompatible** in the spectral basis:
+
+1. **Can't use shared d_max=80**: (1-z)^80 creates degree-89 polynomials that can't be resolved by N+1=5 Chebyshev modes. The GR eigenvalue shifts by 0.06 (catastrophic truncation error).
+2. **Can't use different d_max**: The perturbation formula J·x₁ = -D̃⁽¹⁾·v₀ requires J and D̃⁽¹⁾ in the same "units", but different (1-z)^d_max factors make them incomparable.
+3. **Independent normalization doesn't fix it**: The normalization mismatch is a secondary effect. The primary issue is that D̃⁽⁰⁾ and D̃⁽¹⁾ represent different polynomial spaces.
+
+**N-convergence test results (Source 1 only, a=0.3):**
+- With independent normalization: ω₁ = 4.68, 1.93, 0.80 (NOT converging — changes sign)
+- With GR normalization on D̃⁽¹⁾: ω₁ = O(10^40) (raw D̃⁽¹⁾ is O(10^42))
+- With shared d_max=80: ω₀ shifts by 0.06, cond(J) = 3.2e+17, ω₁ = O(10^26)
+
+### ROOT CAUSE FOUND (2026-03-21, late session)
+
+**The paper keeps `a` (spin) SYMBOLIC and works per-a-order.** The Mathematica notebook stores H_i as power series in `a^{2k}` (k=0..19, up to a^38). Each a-order has moderate r-denominators (r^{2k+5} ≈ r^{5} to r^{43}). Our pipeline evaluates `a` numerically FIRST (in `load_H_ratpolys`), summing all 20 a-orders into one rational function with LCD den.t=66. This inflates d_max from ~15 to ~80.
+
+**The fix**: Load H_i as per-a-order RatPolys: H_i = Σ_k a^{2k} H_i^{(2k)}(r,χ). Each H_i^{(2k)} has moderate den.t ≈ 2k+5. Then `combine_sgb_K` processes each a-order separately with d_max ≈ 15-20. After assembly: D̃⁽¹⁾ = Σ_k a^{2k} D̃^{(2k)}.
+
+**Evidence**: H₁ in notebook has a^{2k} for k=0..19, r-powers up to r^47 (TOTAL across all orders). Individual orders have much lower r-powers. The paper converges at N=20-25, confirming effective d_max ≈ 20-30 (not 80).
+
+### Implementation plan: per-a-order pipeline
+
+1. Modify `load_H_ratpolys` to return `Vector{Vector{RatPoly}}` — outer index is a-order, inner is the 24 derivative components
+2. Modify `combine_sgb_K` to process per-a-order: for each a^{2k}, multiply c_{k,d,p} × H_p^{(2k)}, clear, ω-decompose
+3. Assembly per-a-order: D̃^{(2k)} = assemble(K^{(2k)}), each with d_max ≈ 15-20
+4. Sum: D̃⁽¹⁾ = Σ_k a^{2k} D̃^{(2k)} — simple matrix sum with numerical a
+5. Use SAME d_max as GR for each a-order → perturbation theory is valid
+
+This preserves the a-series structure that the paper uses, avoids the d_max inflation, and keeps everything analytical.
+
+### Previous incorrect paths (documented for reference)
+
+The assembled D̃⁽¹⁾ matrix approach is fundamentally flawed for perturbation theory because the sGB correction requires different denominator clearing than GR. Instead, compute the source vector D̃⁽¹⁾(ω₀)·v₀ via **numerical quadrature**:
+
+1. Evaluate v₀ (spectral expansion) at Gauss-Chebyshev × Gauss-Legendre points
+2. At each point, evaluate the sGB correction using the compiled evaluator
+3. Apply the GR clearing factor Σ³Δ¹(1-χ²)(1-z)^9 and normalization S_k
+4. Project onto spectral test basis → gives source vector compatible with J
+
+This avoids polynomial clearing of D̃⁽¹⁾ entirely. The compiled evaluator already works (6s/point after JIT, 0.07s after warm-up).
 
 ### Next steps:
-1. Run `build_sgb_system_bespoke(0.5, 4, 2; verbose=true)` to completion
-2. Compute ω₁ and compare to Table I of 2406.11986
-3. If ω₁ wrong: only Source 1 is implemented (Sources 2-4 still missing)
-4. If ω₁ converges with N: success for Source 1 contribution
+1. **Implement numerical source vector** via quadrature (new function in sgb_perturbation.jl)
+2. **N-convergence test** with numerical source
+3. **Implement Sources 2-4** (see roadmap below)
+4. **Parallelize Phase 3**: gather/merge pattern from GR pipeline could give ~4x speedup
 
 ### The correct path forward
 
@@ -194,7 +245,7 @@ reference/
 
 ```julia
 # GR pipeline
-sys = build_system_bespoke(a, N, m)          # → METRICSSystem(D0, D1, D2)
+sys, nf = build_system_bespoke(a, N, m)      # → (METRICSSystem, norm_factors)
 result = solve_qep_with_vectors(sys; ω₀=ω_L) # → (eigenvalues, eigenvectors)
 J, free, pinned = compute_jacobian(sys, ω, v) # → Jacobian for perturbation theory
 

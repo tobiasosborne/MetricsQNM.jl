@@ -51,7 +51,7 @@ function reproduce_table1(; N::Int=8, verbose::Bool=true)
     results = []
 
     for (a, paper_re, paper_im) in TABLE1
-        sys = build_system_bespoke(a, N, 2)
+        sys, _ = build_system_bespoke(a, N, 2)
         ω_leaver = leaver_qnm(a; s=-2, l=2, m=2, n=0)
         eigs = solve_qep_svd(sys; ω₀=ω_leaver, refine=1, normalize=false)
         physical = filter(e -> isfinite(e) && imag(e) < 0, eigs)

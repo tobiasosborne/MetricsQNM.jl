@@ -246,14 +246,23 @@ function build_sgb_system_bespoke(a::Float64, N::Int, m::Int;
     K2_z = _r_to_z(K2_r, rp, d_max)
 
     # Phase 5: Assemble D̃ matrices
-    verbose && (println("Assembling D̃⁽¹⁾ matrices (N=$N)..."); flush(stdout))
-    basis = spectral_basis(N, m)
+    # Compute max z-degree and chi-degree from z-space K coefficients
+    s_max = 0
+    for K in (K0_z, K1_z, K2_z), k in 1:n_eqs
+        for ((γ, δ, σ, α, β, j), _) in K.equations[k]
+            σ > s_max && (s_max = σ)
+        end
+    end
+    verbose && (println("Assembling D̃⁽¹⁾ matrices (N=$N, max_delta=$d_max, max_sigma=$s_max)..."); flush(stdout))
+    basis = spectral_basis(N, m; max_delta=d_max, max_sigma=max(s_max, 25))
     D0 = assemble_system(K0_z, basis, a).D0
     D1 = assemble_system(K1_z, basis, a).D0
     D2 = assemble_system(K2_z, basis, a).D0
 
     sys = METRICSSystem(D0, D1, D2, N, m, a)
-    normalize_system!(sys)
+    # NOTE: Do NOT normalize here. The caller must apply the GR normalization
+    # factors via normalize_system!(sys, gr_factors) to ensure D̃⁽¹⁾ uses the
+    # same per-equation scaling as D̃⁽⁰⁾ (required for perturbation theory).
 
     verbose && (@printf("Total sGB D̃⁽¹⁾ build: %.1fs\n", time() - t0_total); flush(stdout))
     return sys

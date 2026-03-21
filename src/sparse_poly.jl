@@ -649,25 +649,63 @@ function reduce_ratpoly(rp::RatPoly, ctx::SymToPolyCtx)
     dp, dq, ds, dt = rp.den.p, rp.den.q, rp.den.s, rp.den.t
     (dp == 0 && dq == 0 && ds == 0 && dt == 0) && return rp
 
-    factors = [(ctx.Σ_poly, 1), (ctx.Δ_poly, 2), (ctx.s2_poly, 3), (ctx.r_poly, 4)]
-    best_num = rp.num
+    num = rp.num
+
+    # Fast path: strip r-powers via exponent subtraction — O(n) total.
+    # r is a monomial, so division is exact iff all terms have r-exponent >= 1.
+    # No need for polynomial long division or permutation search.
+    if dt > 0 && !isempty(num.terms)
+        min_r = minimum(e[1] for (e, _) in num.terms)
+        r_reduce = min(min_r, dt)
+        if r_reduce > 0
+            new_terms = Dict{ExpVec, Float64}()
+            for (e, c) in num.terms
+                new_terms[(e[1] - r_reduce, e[2], e[3], e[4], e[5])] = c
+            end
+            num = SparsePoly(new_terms)
+            dt -= r_reduce
+        end
+    end
+
+    (dp == 0 && dq == 0 && ds == 0 && dt == 0) &&
+        return RatPoly(num, DenomSig(0, 0, 0, 0))
+
+    # For multi-term factors (Σ, Δ, s2): try all 6 permutations of 3 factors.
+    # Include r only if some r-power remains (rare after fast path).
+    factors_active = Tuple{SparsePoly,Int}[]
+    dp > 0 && push!(factors_active, (ctx.Σ_poly, 1))
+    dq > 0 && push!(factors_active, (ctx.Δ_poly, 2))
+    ds > 0 && push!(factors_active, (ctx.s2_poly, 3))
+    dt > 0 && push!(factors_active, (ctx.r_poly, 4))
+
+    nf = length(factors_active)
+    best_num = num
     best_pqst = [dp, dq, ds, dt]
     best_total = dp + dq + ds + dt
 
-    # Tolerance relative to numerator scale (not remainder scale)
-    num_scale = isempty(rp.num.terms) ? 1.0 : maximum(abs, values(rp.num.terms))
+    num_scale = isempty(num.terms) ? 1.0 : maximum(abs, values(num.terms))
     zero_tol = 1e-10 * num_scale
 
-    # Try all permutations of factor ordering (division is order-dependent)
-    perms = [[i,j,k,l] for i in 1:4 for j in 1:4 for k in 1:4 for l in 1:4
-             if length(Set([i,j,k,l])) == 4]
+    # Generate permutations of active factors (≤ 6 for 3 factors vs 24 for 4)
+    perms = if nf == 0
+        [Int[]]
+    elseif nf == 1
+        [[1]]
+    elseif nf == 2
+        [[1,2], [2,1]]
+    elseif nf == 3
+        [[1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]]
+    else
+        [[i,j,k,l] for i in 1:4 for j in 1:4 for k in 1:4 for l in 1:4
+         if length(Set([i,j,k,l])) == 4]
+    end
 
     for perm in perms
-        trial_num = rp.num
+        trial_num = num
         trial_pqst = [dp, dq, ds, dt]
 
-        for idx in perm
-            fac_poly, which = factors[idx]
+        for fi in perm
+            fac_poly, which = factors_active[fi]
             while trial_pqst[which] > 0
                 q, r = _poly_divmod(trial_num, fac_poly)
                 cleanup!(r; tol=zero_tol)
@@ -687,7 +725,7 @@ function reduce_ratpoly(rp::RatPoly, ctx::SymToPolyCtx)
             best_pqst = copy(trial_pqst)
             best_total = trial_total
         end
-        best_total == 0 && break  # fully reduced
+        best_total == 0 && break
     end
 
     RatPoly(best_num, DenomSig(best_pqst[1], best_pqst[2], best_pqst[3], best_pqst[4]))

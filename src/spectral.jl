@@ -26,7 +26,7 @@ Build Chebyshev operators for n = 0, …, N.
 The derivative matrix encodes dT_n/dz = 2n ∑_{k<n, k+n odd} T_k / c_k
 where c_0 = 2, c_k = 1 for k ≥ 1.
 """
-function chebyshev_basis(N::Int)
+function chebyshev_basis(N::Int; max_delta::Int=25)
     # ── Derivative matrix D: (dT_n/dz)[k] ────────────────────────────────────
     # dT_n/dz = 2n ∑_{k<n, k+n odd} T_k / c_k   where c_0=2, c_k=1
     D = spzeros(N + 1, N + 1)  # rows = output index k, cols = input index n
@@ -53,7 +53,6 @@ function chebyshev_basis(N::Int)
     end
 
     # Build higher powers by repeated multiplication: z^δ = Z1 * z^{δ-1}
-    max_delta = 25  # enough for bespoke extraction with high clearing powers
     Zs = Vector{SparseMatrixCSC{Float64,Int}}(undef, max_delta + 1)
     Zs[1] = sparse(I, N + 1, N + 1)  # z^0 = identity
     Zs[2] = Z1
@@ -116,7 +115,7 @@ This gives (1-χ²) dP_l^m/dχ as a combination of P_{l±1}^m.
 We store this as the "derivative" operator, with the understanding that
 the PDE formulation already accounts for the (1-χ²) factor.
 """
-function legendre_basis(N::Int, m::Int)
+function legendre_basis(N::Int, m::Int; max_sigma::Int=25)
     am = abs(m)
     sz = N + 1  # number of basis functions: l = am, am+1, ..., am+N
 
@@ -135,7 +134,6 @@ function legendre_basis(N::Int, m::Int)
     end
 
     # Higher powers by repeated multiplication
-    max_sigma = 25
     Xs = Vector{SparseMatrixCSC{Float64,Int}}(undef, max_sigma + 1)
     Xs[1] = sparse(I, sz, sz)
     Xs[2] = X1
@@ -179,9 +177,9 @@ struct SpectralBasis
     block_size::Int    # (N+1)^2 = number of (n,l) pairs per field
 end
 
-function spectral_basis(N::Int, m::Int)
-    cheb = chebyshev_basis(N)
-    leg  = legendre_basis(N, m)
+function spectral_basis(N::Int, m::Int; max_delta::Int=25, max_sigma::Int=25)
+    cheb = chebyshev_basis(N; max_delta)
+    leg  = legendre_basis(N, m; max_sigma)
     SpectralBasis(N, m, cheb, leg, (N + 1)^2)
 end
 

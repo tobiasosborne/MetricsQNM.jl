@@ -22,23 +22,17 @@ function test_single(a::Float64, N::Int, m::Int; parity::Symbol=:polar, verbose:
     @printf("sGB perturbation: a=%.3f, N=%d, m=%d, parity=%s\n", a, N, m, parity)
     println("=" ^ 70); flush(stdout)
 
-    # Step 1: sGB background
-    println("\n[1/5] Loading sGB background..."); flush(stdout)
+    # Step 1: GR system + QEP solve (production method)
+    println("\n[1/4] Building GR system (N=$N)..."); flush(stdout)
     t0 = time()
-    bg = sgb_background(a; verbose=false)
-    @printf("  Done: %.1fs\n", time() - t0); flush(stdout)
-
-    # Step 2: GR system + QEP solve (production method)
-    println("\n[2/5] Building GR system (N=$N)..."); flush(stdout)
-    t0 = time()
-    sys_gr = build_system_bespoke(a, N, m; verbose=false)
+    sys_gr, gr_norm_factors = build_system_bespoke(a, N, m; verbose=false)
     @printf("  Built: %.1fs  size=%s\n", time() - t0, size(sys_gr.D0)); flush(stdout)
 
     ω_leaver = leaver_qnm(a; l=2, m=m, n=0)
     @printf("  Leaver reference: ω = %.10f %+.10fi\n", real(ω_leaver), imag(ω_leaver))
     flush(stdout)
 
-    println("\n[3/5] QEP eigensolver + eigenvector extraction..."); flush(stdout)
+    println("\n[2/4] QEP eigensolver + eigenvector extraction..."); flush(stdout)
     t0 = time()
     result = solve_qep_with_vectors(sys_gr; ω₀=ω_leaver, refine=1)
     evals = result.eigenvalues
@@ -76,36 +70,22 @@ function test_single(a::Float64, N::Int, m::Int; parity::Symbol=:polar, verbose:
     @printf("  J size: %s, cond ≈ %.1e\n", size(J), cond(J))
     @printf("  Done: %.1fs\n", time() - t0); flush(stdout)
 
-    # Step 3: Compile sGB correction (one-time JIT cost)
-    println("\n[4/5] Compiling sGB correction evaluator..."); flush(stdout)
+    # Step 3: Build D̃⁽¹⁾ correction system via exact SparsePoly extraction
+    println("\n[3/4] Building sGB correction D̃⁽¹⁾ (exact SparsePoly)..."); flush(stdout)
     t0 = time()
-    csc = compile_sgb_correction(m; verbose=true)
-    @printf("  %d h-derivative terms, %d H params\n", csc.n_h, csc.n_H)
-    @printf("  Compiled: %.1fs\n", time() - t0); flush(stdout)
-
-    # Print h-derivative names for debugging
-    println("  h-derivative names:")
-    for (i, name) in enumerate(csc.h_deriv_names)
-        @printf("    [%2d] %s\n", i, name)
-    end
-    flush(stdout)
-
-    # Step 4: Build D̃⁽¹⁾ correction system via Galerkin assembly
-    println("\n[5/5] Building sGB correction D̃⁽¹⁾ (Galerkin)..."); flush(stdout)
-    t0 = time()
-    sys_corr = build_sgb_galerkin(a, N, m, bg, ComplexF64(ω0);
-                                   csc=csc, verbose=true)
+    sys_corr = build_sgb_system_bespoke(a, N, m; verbose=true)
+    normalize_system!(sys_corr, gr_norm_factors)  # Apply GR normalization to D̃⁽¹⁾
     @printf("  Correction system: %.1fs  size=%s\n", time() - t0, size(sys_corr.D0))
     flush(stdout)
 
     # Diagnostics
     @printf("  ‖D₀_corr‖ = %.4e\n", norm(sys_corr.D0))
-    @printf("  ‖D₁_corr‖ = %.4e  (should be 0)\n", norm(sys_corr.D1))
-    @printf("  ‖D₂_corr‖ = %.4e  (should be 0)\n", norm(sys_corr.D2))
+    @printf("  ‖D₁_corr‖ = %.4e\n", norm(sys_corr.D1))
+    @printf("  ‖D₂_corr‖ = %.4e\n", norm(sys_corr.D2))
     flush(stdout)
 
-    # Step 5: Perturbation solve
-    println("\nPerturbation solve:")
+    # Step 4: Perturbation solve
+    println("\n[4/4] Perturbation solve:"); flush(stdout)
     ω1 = solve_sgb_perturbation(sys_corr, ComplexF64(ω0), v0, J)
     @printf("  ω⁽¹⁾ = %.6f %+.6fi\n", real(ω1), imag(ω1)); flush(stdout)
 

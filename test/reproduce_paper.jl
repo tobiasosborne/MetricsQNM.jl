@@ -194,7 +194,7 @@ function plot_fig5(; filename="fig5_qnm_complex_plane.pdf")
     # QEP at Table I spins
     ωRe = Float64[]; ωIm = Float64[]
     for a in TABLE1_SPINS
-        sys = build_system_bespoke(a, 8, 2)
+        sys, _ = build_system_bespoke(a, 8, 2)
         ω_L = leaver_qnm(a; s=-2, l=2, m=2, n=0)
         eigs = solve_qep_svd(sys; ω₀=ω_L, refine=1, normalize=false)
         phys = filter(e -> isfinite(e) && imag(e) < 0, eigs)
@@ -214,7 +214,7 @@ function plot_fig6(; filename="fig6_accuracy_vs_spin.pdf")
     a_v = Float64[]; E_v = Float64[]; ΔRe_v = Float64[]; ΔIm_v = Float64[]; R_v = Float64[]
 
     for a in TABLE1_SPINS
-        sys = build_system_bespoke(a, 8, 2)
+        sys, _ = build_system_bespoke(a, 8, 2)
         ω_L = leaver_qnm(a; s=-2, l=2, m=2, n=0)
         eigs = solve_qep_svd(sys; ω₀=ω_L, refine=1, normalize=false)
         phys = filter(e -> isfinite(e) && imag(e) < 0, eigs)
@@ -251,7 +251,7 @@ function plot_fig12(; N=8, filename="fig12_parity_dominance.pdf")
     bs = (N + 1)^2
 
     for a in TABLE1_SPINS
-        sys = build_system_bespoke(a, N, 2)
+        sys, _ = build_system_bespoke(a, N, 2)
         ω_L = leaver_qnm(a; s=-2, l=2, m=2, n=0)
         ω_guess = round(real(ω_L), sigdigits=2) + im * round(imag(ω_L), sigdigits=2)
 
