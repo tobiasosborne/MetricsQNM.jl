@@ -152,7 +152,7 @@ function combine_sgb_K(coeffs::Dict{Tuple{Int,Int,Int}, RatPoly},
         else
             accumulated = add_ratpolys(terms, ctx)
         end
-        cleanup!(accumulated.num; tol=1e-15, relative=true)
+        cleanup!(accumulated.num; tol=1e-15)
 
         # Clear all denominators
         poly, actual = clear_denominators(accumulated, P, Q, S, ctx)

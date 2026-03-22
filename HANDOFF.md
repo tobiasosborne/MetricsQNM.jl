@@ -24,8 +24,134 @@ Key insight: the QEP solver (not Newton-Raphson) is the production method. It fi
 | **Eigenvalue perturbation solver** | **DONE** | `sgb_perturbation.jl` — `solve_sgb_perturbation(sys_corr, ω0, v0, J)` |
 | **β=3 assembly extension** | **DONE** | `assembly.jl` — `_leg_d3` for 3rd χ-derivative |
 | **D̃⁽¹⁾ assembly (numerical)** | **ABANDONED** | `sgb_galerkin.jl` — polynomial fitting failed (C[k,d] not polynomial) |
-| **D̃⁽¹⁾ assembly (exact SparsePoly)** | **IN PROGRESS** | `sgb_symbolic_pipeline.jl` — Phase 2-3 work, awaiting full run completion |
-| **End-to-end test** | **PARTIAL** | `test/test_sgb_e2e.jl` runs, ω₁ = O(1) but not converged |
+| **D̃⁽¹⁾ assembly (exact SparsePoly)** | **BLOCKED** | `sgb_symbolic_pipeline.jl` — d_max too high, see below |
+| **End-to-end test** | **FAILS** | `test/convergence_sgb.jl` — ω₁ = O(10^10), not converging |
+
+## THE BLOCKING PROBLEM: d_max from c_{k,d,p} (2026-03-22)
+
+### Summary
+
+The per-a-order pipeline runs end-to-end, verification is now at machine precision
+(2.24e-14), but **ω₁ does not converge because the shared d_max is too high for the
+spectral basis to resolve**. The d_max problem is NOT from H_i (fixed by per-a-order
+splitting) — it's from the c_{k,d,p} coefficients themselves.
+
+### Why d_max is high
+
+The shared d_max has TWO contributions:
+1. **c_{k,d,p}**: r-degree ~15-24 from Kerr metric components (Σ, Δ, etc.) at numerical a
+2. **H_p per order**: r-degree ~2k+5 (low per order)
+
+The COMBINED d_max = c_contribution + H_contribution ≈ 24 + (2k+5).
+
+Per-a-order H_i splitting reduced H_p's contribution from den.t=66 (all orders summed)
+to den.t=9-11 (individual orders). But c_{k,d,p}'s contribution of ~24 is FIXED because
+it is evaluated at numerical a=0.3 in Phase 2. The base d_max=24 is the floor, not ~9.
+
+### N-convergence results (2026-03-22, a=0.3, epsilon=1e-2, Source 1 only)
+
+With epsilon=1e-2: 2 a-orders retained (a^0, a^2), shared d_max=26.
+
+```
+N     |Δω⁰|      ω₁ Re          ω₁ Im           |ω₁|       cond(J)
+10    6.74e-05   -5.84e+09      -1.17e+11        1.17e+11   3.6e+14
+12    1.54e-03   +7.93e+10      -1.83e+12        1.83e+12   3.4e+15
+15    3.54e-02   -2.47e+11      +3.61e+11        4.38e+11   5.2e+16
+18    7.40e-03   -2.53e+10      +3.82e+10        4.58e+10   5.5e+17
+```
+
+**Diagnosis**: The GR eigenvalue error |Δω⁰| is NOT decreasing monotonically — the
+d_max=26 shared basis makes the QEP ill-conditioned. The condition number of J grows
+from 3.6e+14 (N=10) to 5.5e+17 (N=18). ω₁ is O(10^10-12) (garbage). The N=20-25
+results were still computing but the trend is catastrophic.
+
+### Why the paper doesn't have this problem
+
+The paper computes K^(η=1) **fully symbolically** — keeping `a` symbolic throughout
+the entire pipeline (not just in H_i). This means:
+1. c_{k,d,p} never has numerical a baked in
+2. The full product c_{k,d,p} × H_p stays rational in (r, χ, a)
+3. After a-order decomposition, each order has moderate r-degree (~2k+5)
+4. The c_{k,d,p} contribution to d_max is ZERO because it factors through the a-expansion
+
+Our pipeline evaluates c_{k,d,p} at numerical a=0.3 in Phase 2 (via probing). This
+bakes the Kerr metric's r-structure into the coefficients as ~15-24 powers of r that
+CANNOT be decomposed per-a-order afterward.
+
+### What needs to change
+
+**The c_{k,d,p} must also be decomposed per-a-order.** Two approaches:
+
+**Approach 1: Symbolic-a probing**
+Keep `a` symbolic in Phase 2 probing. This requires `compute_sgb_correction_equations`
+to accept symbolic `a` and `extract_sgb_coefficients_symbolic` to return RatPolys in
+(r, χ, a, ω). Then split c_{k,d,p} by a-exponent just like H_i. This would reduce the
+combined d_max to ~(2k+5) per order (same as H_i alone).
+
+Challenge: The Symbolics.jl expression tree may blow up when `a` is symbolic, since
+the field equations contain Σ⁻¹, Δ⁻¹ etc. with symbolic a.
+
+**Approach 2: Per-a-order c_{k,d,p} by multi-point probing**
+Evaluate c_{k,d,p} at multiple a-values (e.g., a=0.1, 0.2, ..., 0.9) and fit the
+a-dependence as a polynomial in a². This gives per-a-order c_{k,d,p} without symbolic a.
+
+Challenge: Requires enough a-points to resolve all a-orders, and the fitting may be
+ill-conditioned for high a-orders.
+
+**Approach 3: Rethink the z-transform**
+The (1-z)^{d_max} multiplication is the root cause of the resolution requirement.
+An alternative coordinate transform or rational spectral basis could absorb the
+r-denominator into the weight function, eliminating the need for (1-z)^{d_max}.
+
+## What was fixed this session (2026-03-22)
+
+### 1.5% verification error — FIXED
+
+**Root cause**: `cleanup!(rp.num; tol=1e-15, relative=true)` on H4's numerator.
+
+LCD clearing to r^66 inflated H4's max coefficient to **5.94e+13**. The cleanup
+threshold became `1e-15 × 5.94e+13 = 0.059`, which dropped **8 legitimate terms**
+with coefficients 0.012–0.058. These were real polynomial terms, not noise.
+
+**Diagnosis method** (in `test/diagnose_per_order.jl`, `test/diagnose_H4_terms.jl`,
+`test/diagnose_H4_cleanup.jl`):
+1. Stage 1: `symexpr_to_poly` with symbolic vs numerical a → error only in **H4**
+2. Stage 2: `_split_ratpoly_by_var` → exact (1e-16), not the culprit
+3. Term-by-term comparison: all 967 collapsed monomials match to 1e-16 **before cleanup**
+4. After cleanup: 8 terms dropped from H4, causing the entire 7.26e-4 error
+5. Error only in χ-independent terms (H4_χ perfect, confirming dropped terms had χ^0)
+
+**Fix**: Changed all sGB `cleanup!` calls from `relative=true` to absolute (`tol=1e-15`):
+- `sgb_background.jl`: lines 529, 541, 588, 599, 729, 752, 761
+- `sgb_symbolic_pipeline.jl`: line 155
+
+**Verification**: max relative error dropped from 1.5e-2 to **2.24e-14** at all test points.
+
+## Exact SparsePoly extraction — STATUS
+
+**Path B runs end-to-end but does not converge due to d_max.** First ω₁ computed 2026-03-21.
+
+### What's done:
+1. **DenomSig extended** with 4th field `t` for r-power tracking (backward-compat, GR still 11.9 digits at N=8)
+2. **SparsePoly differentiation** — exact `differentiate(p, var_idx)` function
+3. **H_i → 24 RatPoly** — `load_H_ratpolys(a)` parses Mathematica notebook, converts to SparsePoly, differentiates symbolically. Values match numerical to ~1e-16, derivatives are now EXACT (vs O(ε²) finite diff before)
+4. **c_{k,d,p} probing** — `extract_sgb_coefficients_symbolic(a)` double-probes sGB equations: 203 non-zero (k,d) pairs, 1165 non-zero (k,d,p) triples (~95s)
+5. **Multiply + accumulate** — `combine_sgb_K` multiplies c_{k,d,p} × H_p in RatPoly land, clears denominators, ω-decomposes. 203 pairs: ~20K-26K terms per a-order
+6. **Full pipeline** — `build_sgb_system_bespoke(a, N, m)` wires everything through _r_to_z + assemble_system
+7. **Per-a-order H_i loading** — `load_H_ratpolys_per_order()` with exact verification (2.24e-14)
+8. **Convergence test** — `test/convergence_sgb.jl` sweeps N with cached Phase 2-3
+
+### Per-a-order pipeline timing (a=0.3, epsilon=1e-2):
+- Phase 1 (H_i loading): ~25s
+- Phase 2 (c_{k,d,p} probing): ~95s
+- Phase 3 (combine, 2 a-orders): ~62s
+- Phase 4-5 per N (r→z + assembly + GR + perturbation): 53s (N=10) to 1020s (N=18)
+
+### Critical findings:
+- d_max = 24 even at a^0 order (from c_{k,d,p}, not H_p)
+- Shared d_max = 26 with 2 a-orders requires N ≥ 26 for spectral resolution
+- GR eigenvalue with d_max_override=26 does NOT converge: erratic |Δω⁰| and cond(J) ∝ N^5
+- The per-a-order approach solved the H_i d_max inflation (66→9) but NOT the c_{k,d,p} inflation (24→24)
 
 ## What the paper actually does (deep review 2026-03-20)
 
@@ -41,149 +167,13 @@ The K^(η=1) coefficients are just numbers because the entire symbolic pipeline 
 ### Critical divergences from paper
 
 1. **Assembly method**: Paper uses symbolic K-extraction; we use numerical evaluation
-2. **Missing sources**: We only have Source 1 (modified Ricci from H). Paper needs all 4:
+2. **a-handling**: Paper keeps a symbolic throughout; we evaluate a numerically in c_{k,d,p}
+3. **Missing sources**: We only have Source 1 (modified Ricci from H). Paper needs all 4:
    - Source 1: O(ζ) Ricci correction from modified background ✓
    - Source 2: linearized sGB source tensor A_μ^ν ✗
    - Source 3: linearized scalar stress-energy T_μ^ν ✗
    - Source 4: Ω_H¹, κ¹ corrections in A_k ✗
-3. **System size**: Paper is 11 eqs × 7 unknowns (includes scalar h₇); we are 10×6
-
-## THE CURRENT PROBLEM: C[k,d] is NOT polynomial
-
-### What was discovered (2026-03-20)
-
-The correction coefficients C[k,d](r, χ) from `extract_sgb_coefficients_complex` are:
-- **O(1) everywhere** — raw values range from ~0.5 to ~6.0
-- **Smooth** on [r₊, ∞) × [-1, 1]
-- **Asymptote to a nonzero constant** (~1.2) as r → ∞
-
-This means C[k,d] is NOT polynomial in r, NOT polynomial in z, and NOT rational with a finite denominator. It's a genuinely smooth function that requires spectral representation.
-
-### What was tried and failed
-
-1. **r-space clearing + Vandermonde fit** (P=4, Q=2, S=2): Clearing factor Σ^P Δ^Q (1-χ²)^S makes values HUGE at large r (up to 1e25). Polynomial fit gives rel. error ~1e16.
-
-2. **z-space monomial Vandermonde fit**: C[k,d](z, χ) is smooth on [-1,1] but NOT polynomial in z (the rational structure of H_i introduces 1/(1+z)^n terms). Fit error ~1e8, ω₁ does not converge with increasing grid size.
-
-3. **z-space Chebyshev interpolation → monomial**: Same issue — the Chebyshev expansion converges but the monomial conversion amplifies high-degree coefficients. ω₁ unstable.
-
-## Exact SparsePoly extraction — STATUS (2026-03-20)
-
-**Path B runs end-to-end.** First ω₁ computed 2026-03-21.
-
-### What's done:
-1. **DenomSig extended** with 4th field `t` for r-power tracking (backward-compat, GR still 11.9 digits at N=8)
-2. **SparsePoly differentiation** — exact `differentiate(p, var_idx)` function
-3. **H_i → 24 RatPoly** — `load_H_ratpolys(a)` parses Mathematica notebook, converts to SparsePoly, differentiates symbolically. Values match numerical to ~1e-16, derivatives are now EXACT (vs O(ε²) finite diff before)
-4. **c_{k,d,p} probing** — `extract_sgb_coefficients_symbolic(a)` double-probes sGB equations: 203 non-zero (k,d) pairs, 1165 non-zero (k,d,p) triples (~63s)
-5. **Multiply + accumulate** — `combine_sgb_K` multiplies c_{k,d,p} × H_p in RatPoly land, clears denominators, ω-decomposes. 203 pairs: ~975-4417 poly terms, clearing P≤11,Q≤4,S=1,T≤57
-6. **Full pipeline** — `build_sgb_system_bespoke(a, N, m)` wires everything through _r_to_z + assemble_system
-7. **test_sgb_e2e.jl updated** to use `build_sgb_system_bespoke`
-8. **test/run_sgb_bespoke.jl** — lean runner script for quick validation
-
-### First ω₁ result (2026-03-21, a=0.3, N=4, Source 1 only):
-```
-ω⁽⁰⁾ = 0.4195266818 - 0.0877292719i  (Leaver match: 3.18e-14)
-ω⁽¹⁾ = 4.678124 - 3.375967i           (Source 1 only)
-Paper: ω⁽¹⁾ = -0.364190 - 0.042360i   (all 4 sources)
-```
-ω₁ is O(1), consistent with earlier numerical Galerkin attempts. The paper's much smaller value suggests near-cancellation between Sources 1-4.
-
-### Bugs fixed in this session:
-1. **`binomial` Int64 overflow** in `_r_to_z`: sGB has d_max=80, binomial(77,22) > typemax(Int64). Fixed via BigInt precomputation.
-2. **`spectral_basis` hardcoded max_delta=25**: sGB needs z-degree up to 80 and chi-degree up to 57. Fixed by parameterizing `chebyshev_basis(N; max_delta)` and `legendre_basis(N, m; max_sigma)`.
-3. **`reduce_ratpoly` performance**: r-power stripping via O(n) exponent subtraction instead of O(24×T×n²) polynomial division. Phase 3 speedup: 2405s → 1709s (29%).
-
-### Critical finding: d_max incompatibility (2026-03-21)
-
-The `_r_to_z` transform multiplies each equation by `(1-z)^d_max` to make r-polynomials into z-polynomials. GR uses d_max=9, sGB uses d_max=80. These are **fundamentally incompatible** in the spectral basis:
-
-1. **Can't use shared d_max=80**: (1-z)^80 creates degree-89 polynomials that can't be resolved by N+1=5 Chebyshev modes. The GR eigenvalue shifts by 0.06 (catastrophic truncation error).
-2. **Can't use different d_max**: The perturbation formula J·x₁ = -D̃⁽¹⁾·v₀ requires J and D̃⁽¹⁾ in the same "units", but different (1-z)^d_max factors make them incomparable.
-3. **Independent normalization doesn't fix it**: The normalization mismatch is a secondary effect. The primary issue is that D̃⁽⁰⁾ and D̃⁽¹⁾ represent different polynomial spaces.
-
-**N-convergence test results (Source 1 only, a=0.3):**
-- With independent normalization: ω₁ = 4.68, 1.93, 0.80 (NOT converging — changes sign)
-- With GR normalization on D̃⁽¹⁾: ω₁ = O(10^40) (raw D̃⁽¹⁾ is O(10^42))
-- With shared d_max=80: ω₀ shifts by 0.06, cond(J) = 3.2e+17, ω₁ = O(10^26)
-
-### ROOT CAUSE FOUND (2026-03-21, late session)
-
-**The paper keeps `a` (spin) SYMBOLIC and works per-a-order.** The Mathematica notebook stores H_i as power series in `a^{2k}` (k=0..19, up to a^38). Each a-order has moderate r-denominators (r^{2k+5} ≈ r^{5} to r^{43}). Our pipeline evaluates `a` numerically FIRST (in `load_H_ratpolys`), summing all 20 a-orders into one rational function with LCD den.t=66. This inflates d_max from ~15 to ~80.
-
-**The fix**: Load H_i as per-a-order RatPolys: H_i = Σ_k a^{2k} H_i^{(2k)}(r,χ). Each H_i^{(2k)} has moderate den.t ≈ 2k+5. Then `combine_sgb_K` processes each a-order separately with d_max ≈ 15-20. After assembly: D̃⁽¹⁾ = Σ_k a^{2k} D̃^{(2k)}.
-
-**Evidence**: H₁ in notebook has a^{2k} for k=0..19, r-powers up to r^47 (TOTAL across all orders). Individual orders have much lower r-powers. The paper converges at N=20-25, confirming effective d_max ≈ 20-30 (not 80).
-
-### Per-a-order pipeline — IMPLEMENTED (2026-03-21)
-
-1. ✅ `load_H_ratpolys_per_order()` — parses H_i with `a` as SparsePoly variable (slot 3), splits by a-exponent via `_split_ratpoly_by_var`, reduces per-order r-denominators
-2. ✅ `combine_sgb_K` called once per a-order with that order's 24 H_ratpolys
-3. ✅ Assembly per-a-order with shared d_max across all retained orders
-4. ✅ D̃⁽¹⁾ = Σ_k a^{2k} D̃^{(2k)} — matrix sum with numerical a weights
-5. ✅ GR system rebuilt with `d_max_override` to match sGB shared d_max
-6. ✅ Truncation: a-orders with `a^{2k} < epsilon` are dropped (default epsilon=1e-14)
-7. ✅ Verification: `verify_H_ratpolys_per_order` checks per-order sum matches original
-
-**Key design decisions:**
-- Variable slot 3 reused: `a` during H_i parsing → stripped to 0 after splitting → `ω_re` during combine
-- `SymToPolyCtx(var_list, 1.0)` dummy for H_i conversion (Σ/Δ polys don't match r-only denoms)
-- Shared d_max across all retained orders AND GR system (required for consistent Galerkin weighting)
-- `c_{k,d,p}` stays numerical in `a` — only H_p needs per-order splitting
-
-### First end-to-end results (2026-03-21, a=0.3, epsilon=1e-14, N=8):
-
-Per-order d_max values: 24, 26, 30, 33, 35, 39, 42, 46, 50, 53, 56, 60, 63, 66.
-Pattern: d_max ≈ 24 + 3k (k = a-order index). The base d_max=24 comes from
-the sGB correction c_{k,d,p} having high r-degrees from Kerr background.
-
-**Shared d_max=66 with N=8 is catastrophically under-resolved:**
-- GR ω⁰ shifted by 0.046 (should match Leaver to 1e-14)
-- ‖D‖ = O(10^26-38), cond(J) = 1.7e+18
-- ω₁ = O(10^9) (garbage)
-
-**Practical parameter choices** (a=0.3):
-| epsilon | n_a_max | shared d_max | min N needed |
-|---------|---------|-------------|-------------|
-| 1e-14   | 14      | ~66         | ~65         |
-| 1e-4    | 4       | ~33         | ~30         |
-| 1e-3    | 3       | ~30         | ~25         |
-| 1e-2    | 2       | ~26         | ~22         |
-
-The paper converges at N=20-25, suggesting they use effective truncation of ~3-5 a-orders.
-
-**1.5% verification error** in per-order H_i splitting (at r=5, χ=0.5):
-Likely from different Symbolics simplification paths when `a` is symbolic vs.
-numerical. Need investigation — may require using the same Symbolics path
-for both, or tighter cleanup tolerances.
-
-### Next steps:
-1. **Investigate 1.5% verification error** — check if cleanup tolerance or Symbolics simplification
-2. **Run with epsilon=1e-3, N=25** — should give manageable d_max ≈ 30
-3. **Implement Sources 2-4** (see roadmap below)
-4. **Parallelize Phase 3**: gather/merge pattern from GR pipeline could give ~4x speedup
-
-### The correct path forward
-
-**The assembly needs coefficients as z^δ monomials** (because the spectral operators are `Z[δ+1] * D` etc.). But C[k,d] is smooth, not polynomial. Two viable paths:
-
-**Path A: Spectral projection (recommended)**
-Instead of fitting C as polynomial, project it directly onto the spectral basis:
-```
-D̃⁽¹⁾[(k,n,l), (j,n',l')] = ∫∫ C[k,d](z,χ) × T_n(z) × P_l^m(χ) × T_{n'}(z) × P_{l'}^m(χ) w(z,χ) dz dχ
-```
-Compute this integral via Gauss-Chebyshev × Gauss-Legendre quadrature. This avoids polynomial fitting entirely — the matrix elements are computed directly as numerical integrals. The C[k,d] values at quadrature points are O(1), no blowup.
-
-**Subtlety**: This computes D̃⁽¹⁾ in h-derivative space (the C[k,d] multiply h-derivatives). The GR assembly uses the same convention (r-derivative indices passed through as z-derivative operators). For consistency, the spectral projection should use the SAME operator convention as the GR assembly.
-
-**Path B: Extend SparsePoly to handle sGB**
-Extend the bespoke SparsePoly CAS to extract K^(η=1) symbolically by:
-1. Probing the Symbolics expressions for H-parameter coefficients (24 probes per (k,d))
-2. Representing each c_{k,d,p}(r,χ) as RatPoly (with Σ, Δ denominators)
-3. Multiplying by H_p(r,χ) in SparsePoly land
-4. This avoids the 155M char blowup because H_i content enters as SparsePoly, not Symbolics
-
-This gives exact K coefficients but requires more implementation work and careful memory management for the ~2000 SparsePoly products.
+4. **System size**: Paper is 11 eqs × 7 unknowns (includes scalar h₇); we are 10×6
 
 ## What the compiled evaluator produces
 
@@ -251,13 +241,18 @@ src/
   sgb_linearize.jl           — sGB correction: compile + extract + build_sgb_correction_system
   sgb_perturbation.jl        — Eigenvalue perturbation solver (Eq. 111)
   sgb_galerkin.jl            — Numerical Galerkin assembly (abandoned — C[k,d] not polynomial)
-  sgb_symbolic_pipeline.jl   — Exact SparsePoly K^(η=1) extraction (IN PROGRESS)
+  sgb_symbolic_pipeline.jl   — Exact SparsePoly K^(η=1) extraction (BLOCKED on d_max)
   [dtilde.jl, factored_assembly.jl] — earlier D̃ approaches (reference)
   [poly_extract.jl, zspace_extract.jl, pipeline.jl] — dead ends (kept for reference)
 test/
   test_sgb_e2e.jl            — End-to-end sGB test (uses sgb_galerkin.jl)
+  convergence_sgb.jl         — N-convergence study (Source 1, per-a-order)
+  diagnose_per_order.jl      — Multi-stage diagnostic for per-order splitting error
+  diagnose_H4_terms.jl       — Term-by-term H4 comparison (numerical vs symbolic a)
+  diagnose_H4_cleanup.jl     — Identifies cleanup!-dropped terms causing 1.5% error
   reproduce_paper.jl         — Generates Figs 1,2,5,6 from the GR paper
   reproduce_table1.jl        — Table I reproduction (219/220 digits)
+  run_sgb_bespoke.jl         — Lean sGB runner script
 reference/
   2406.11986_source/         — sGB paper supplementary materials (Mathematica notebook)
 ```

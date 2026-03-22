@@ -526,7 +526,7 @@ function _differentiate_ratpoly_r(rp::RatPoly)
     end
     r_poly = var_poly(1)
     new_num = f_r * r_poly - Float64(t) * f
-    cleanup!(new_num; tol=1e-15, relative=true)
+    cleanup!(new_num; tol=1e-15)
     RatPoly(new_num, DenomSig(rp.den.p, rp.den.q, rp.den.s, t + 1))
 end
 
@@ -538,7 +538,7 @@ For H_i, the denominator is r^t (no χ dependence), so d/dχ is simple.
 """
 function _differentiate_ratpoly_chi(rp::RatPoly)
     f_chi = differentiate(rp.num, 2)   # df/dχ
-    cleanup!(f_chi; tol=1e-15, relative=true)
+    cleanup!(f_chi; tol=1e-15)
     RatPoly(f_chi, rp.den)
 end
 
@@ -585,7 +585,7 @@ function load_H_ratpolys(a::Float64; verbose::Bool=false)
 
         verbose && (print("symexpr_to_poly... "); flush(stdout))
         rp_val = symexpr_to_poly(sym_expr, ctx)
-        cleanup!(rp_val.num; tol=1e-15, relative=true)
+        cleanup!(rp_val.num; tol=1e-15)
 
         verbose && (print("diff... "); flush(stdout))
         rp_dr   = _differentiate_ratpoly_r(rp_val)
@@ -596,7 +596,7 @@ function load_H_ratpolys(a::Float64; verbose::Bool=false)
 
         # Clean up all derivatives
         for rp in [rp_dr, rp_dchi, rp_drr, rp_dchichi, rp_drchi]
-            cleanup!(rp.num; tol=1e-15, relative=true)
+            cleanup!(rp.num; tol=1e-15)
         end
 
         offset = (i - 1) * 6
@@ -726,7 +726,7 @@ function load_H_ratpolys_per_order(; verbose::Bool=false)
 
         verbose && (print("symexpr_to_poly... "); flush(stdout))
         rp_full = symexpr_to_poly(sym_expr, ctx)
-        cleanup!(rp_full.num; tol=1e-15, relative=true)
+        cleanup!(rp_full.num; tol=1e-15)
 
         verbose && (print("split... "); flush(stdout))
         split = _split_ratpoly_by_var(rp_full, 3)  # 3 = a-variable index
@@ -749,7 +749,7 @@ function load_H_ratpolys_per_order(; verbose::Bool=false)
 
         for i in 1:4
             rp_val = get(all_rp_split[i], a_pow, RatPoly(0.0))
-            cleanup!(rp_val.num; tol=1e-15, relative=true)
+            cleanup!(rp_val.num; tol=1e-15)
 
             rp_dr   = _differentiate_ratpoly_r(rp_val)
             rp_dchi = _differentiate_ratpoly_chi(rp_val)
@@ -758,7 +758,7 @@ function load_H_ratpolys_per_order(; verbose::Bool=false)
             rp_drchi   = _differentiate_ratpoly_chi(rp_dr)
 
             for rp in [rp_dr, rp_dchi, rp_drr, rp_dchichi, rp_drchi]
-                cleanup!(rp.num; tol=1e-15, relative=true)
+                cleanup!(rp.num; tol=1e-15)
             end
 
             offset = (i - 1) * 6
