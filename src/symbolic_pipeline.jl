@@ -525,6 +525,203 @@ function extract_G_bespoke(a::Float64; P::Int=3, Q::Int=1, S::Int=1,
 end
 
 # ═══════════════════════════════════════════════════════════════════════════════
+#  Symbolic-a extraction (sGB: keeps spin parameter `a` symbolic)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+"""
+    _split_poly_by_var(poly::SparsePoly, var_idx::Int) → Dict{Int, SparsePoly}
+
+Split a SparsePoly into groups by the exponent of variable `var_idx`.
+Each group has the split variable exponent zeroed out.
+No r-factor reduction — preserves all exponents as-is.
+"""
+function _split_poly_by_var(poly::SparsePoly, var_idx::Int)
+    groups = Dict{Int, Dict{ExpVec, Float64}}()
+    for (e, c) in poly.terms
+        v_exp = e[var_idx]
+        new_e = ntuple(i -> i == var_idx ? 0 : e[i], N_VARS)
+        if !haskey(groups, v_exp)
+            groups[v_exp] = Dict{ExpVec, Float64}()
+        end
+        groups[v_exp][new_e] = get(groups[v_exp], new_e, 0.0) + c
+    end
+    return Dict{Int, SparsePoly}(k => SparsePoly(v) for (k, v) in groups if !isempty(v))
+end
+
+"""
+    extract_G_bespoke_symbolic_a(; P=3, Q=1, S=1, verbose=false)
+        → (per_a_order::Dict{Int, Tuple{PDECoefficients, PDECoefficients, PDECoefficients}},
+           a_powers::Vector{Int})
+
+Extract polynomial G coefficients with SYMBOLIC spin parameter `a`.
+
+Like `extract_G_bespoke`, but does NOT substitute `a` numerically. Instead, `a`
+remains as variable index 6 throughout extraction. After clearing denominators,
+splits each coefficient by a-exponent and returns per-a-order PDECoefficients.
+
+Returns a dict mapping a-exponent → (K₀, K₁, K₂) in r-space, plus sorted a-powers.
+Each per-a-order K has moderate r-degree (~5-10, not ~24).
+"""
+function extract_G_bespoke_symbolic_a(; P::Int=3, Q::Int=1, S::Int=1,
+                                       verbose::Bool=false)
+    verbose && (println("  Computing field equations..."); flush(stdout))
+    eqs, coords, params, hfuncs, freq_vars = compute_field_equations(2)
+    r, chi = coords[2], coords[3]
+    a_s = params[1]
+    omega_re, omega_im, iu_sym = freq_vars
+
+    # Discover h-derivative terms (same as extract_G_bespoke)
+    all_vars = Set{Any}()
+    for eq in eqs, v in Symbolics.get_variables(eq)
+        any(occursin("h$j", string(v)) for j in 1:6) && push!(all_vars, v)
+    end
+    h_terms = sort(collect(all_vars), by=string)
+    h_map = _parse_h_terms(string.(h_terms))
+    sub_zero = Dict{Any,Any}(t => Num(0) for t in h_terms)
+    n_h = length(h_terms)
+    n_eqs = length(eqs)
+
+    # SYMBOLIC a: use the no-a_val constructor → Σ, Δ contain var_poly(6)
+    var_list = Num[r, chi, omega_re, omega_im, iu_sym, a_s]
+    ctx = SymToPolyCtx(var_list)
+
+    verbose && (println("  Extracting $n_h × $n_eqs = $(n_h * n_eqs) coefficients via SparsePoly (symbolic a)..."); flush(stdout))
+
+    t_start = time()
+    tasks = [(k, d) for k in 1:n_eqs for d in 1:n_h]
+    n_tasks = length(tasks)
+
+    # Pass 1: convert all tasks to RatPoly (serial — Symbolics not thread-safe)
+    # NO numerical a substitution — a_s stays symbolic
+    ratpolys = Vector{Union{Nothing, RatPoly}}(undef, n_tasks)
+
+    for idx in 1:n_tasks
+        k, d = tasks[idx]
+        sub = copy(sub_zero)
+        sub[h_terms[d]] = Num(1)
+        coeff = Symbolics.substitute(eqs[k], sub)
+        if isequal(coeff, Num(0))
+            ratpolys[idx] = nothing
+            continue
+        end
+        # NO: coeff_a = Symbolics.substitute(coeff, Dict(a_s => a))
+        # Keep a_s symbolic — it maps to var_poly(6) via ctx.var_idx
+        ratpolys[idx] = symexpr_to_poly(coeff, ctx)
+    end
+
+    n_nonzero = count(!isnothing, ratpolys)
+    verbose && (println("  $n_nonzero non-zero tasks, clearing + a-splitting (P≥$P, Q≥$Q, S≥$S)"); flush(stdout))
+
+    # Pass 2: clear denominators + split by a-exponent + ω-decompose (threaded)
+    # Each task produces tuples tagged with a-exponent
+    TaskResult = Tuple{Int,Int,Int,Int,Int,Int,Int,ComplexF64,ComplexF64,ComplexF64}
+    task_results = Vector{Vector{TaskResult}}(undef, n_tasks)
+
+    done_count = Threads.Atomic{Int}(0)
+
+    Threads.@threads for idx in 1:n_tasks
+        k, d = tasks[idx]
+        local_results = TaskResult[]
+
+        rp = ratpolys[idx]
+        if rp === nothing
+            task_results[idx] = local_results
+            Threads.atomic_add!(done_count, 1)
+            continue
+        end
+
+        # Clear denominators (Σ^P Δ^Q (1-χ²)^S absorbed into numerator)
+        poly, _ = clear_denominators(rp, P, Q, S, ctx)
+
+        # Split by a-exponent (variable 6)
+        per_a = _split_poly_by_var(poly, 6)
+
+        j_d, α_d, β_d = h_map[d]
+
+        for (a_exp, poly_order) in per_a
+            for (exps, coeff_val) in poly_order.terms
+                abs(coeff_val) < 1e-15 && continue
+
+                δ, σ, p_ω, q_ω, s_iu, _a_check = exps
+                @assert _a_check == 0 "After split by a-exponent, a-exp should be 0 (got $_a_check)"
+                G0, G1, G2 = _omega_monomial_to_G(p_ω, q_ω, s_iu, coeff_val)
+
+                for (γ, Gval) in enumerate((G0, G1, G2))
+                    abs(Gval) < 1e-15 && continue
+                    push!(local_results, (k, j_d, α_d, β_d, δ, σ, a_exp,
+                          γ == 1 ? Gval : 0.0im,
+                          γ == 2 ? Gval : 0.0im,
+                          γ == 3 ? Gval : 0.0im))
+                end
+            end
+        end
+
+        task_results[idx] = local_results
+
+        Threads.atomic_add!(done_count, 1)
+        dc = done_count[]
+        if verbose && (dc % 50 == 0 || dc == n_tasks)
+            elapsed = time() - t_start
+            @printf("    [%d/%d] %.1fs elapsed (%.1f tasks/s)\n", dc, n_tasks, elapsed, dc/elapsed)
+            flush(stdout)
+        end
+    end
+
+    # Collect all a-exponents across all tasks
+    all_a_orders = Set{Int}()
+    for results in task_results
+        for (_, _, _, _, _, _, a_exp, _, _, _) in results
+            push!(all_a_orders, a_exp)
+        end
+    end
+    a_powers = sort(collect(all_a_orders))
+
+    verbose && (println("  Found $(length(a_powers)) a-orders: $(a_powers)"); flush(stdout))
+
+    # Initialize per-a-order PDECoefficients
+    per_a_Ks = Dict{Int, Tuple{PDECoefficients, PDECoefficients, PDECoefficients}}()
+    for a_exp in a_powers
+        per_a_Ks[a_exp] = tuple([PDECoefficients(
+            [Dict{NTuple{6,Int}, ComplexF64}() for _ in 1:10],
+            fill(30, 10), fill(20, 10)) for _ in 1:3]...)
+    end
+
+    # Merge task results into per-a-order structures
+    for idx in 1:n_tasks
+        for (k, j_d, α_d, β_d, δ, σ, a_exp, g0, g1, g2) in task_results[idx]
+            K0, K1, K2 = per_a_Ks[a_exp]
+            for (γ, Gval) in enumerate((g0, g1, g2))
+                abs(Gval) < 1e-15 && continue
+                key = (γ - 1, δ, σ, α_d, β_d, j_d)
+                Kγ = (K0, K1, K2)[γ]
+                Kγ.equations[k][key] = get(Kγ.equations[k], key, 0.0im) + Gval
+            end
+        end
+    end
+
+    # Report per-order statistics
+    if verbose
+        for a_exp in a_powers
+            K0, K1, K2 = per_a_Ks[a_exp]
+            n0 = sum(length(d) for d in K0.equations)
+            n1 = sum(length(d) for d in K1.equations)
+            n2 = sum(length(d) for d in K2.equations)
+            d_max = 0
+            for K in (K0, K1, K2), k in 1:10
+                for ((_, δ, _, _, _, _), _) in K.equations[k]
+                    d_max = max(d_max, δ)
+                end
+            end
+            @printf("    a^%d: %d+%d+%d terms, d_max=%d\n", a_exp, n0, n1, n2, d_max)
+        end
+        flush(stdout)
+    end
+
+    verbose && (println("  Total extraction: $(round(time() - t_start, digits=1))s"); flush(stdout))
+    return per_a_Ks, a_powers
+end
+
+# ═══════════════════════════════════════════════════════════════════════════════
 #  Per-equation normalization
 # ═══════════════════════════════════════════════════════════════════════════════
 
