@@ -1,0 +1,1681 @@
+%merlin.mbs apsrev4-1.bst 2010-07-25 4.21a (PWD, AO, DPC) hacked
+%Control: key (0)
+%Control: author (8) initials jnrlst
+%Control: editor formatted (1) identically to author
+%Control: production of article title (0) allowed
+%Control: page (1) range
+%Control: year (1) truncated
+%Control: production of eprint (0) enabled
+\begin{thebibliography}{134}%
+\makeatletter
+\providecommand \@ifxundefined [1]{%
+ \@ifx{#1\undefined}
+}%
+\providecommand \@ifnum [1]{%
+ \ifnum #1\expandafter \@firstoftwo
+ \else \expandafter \@secondoftwo
+ \fi
+}%
+\providecommand \@ifx [1]{%
+ \ifx #1\expandafter \@firstoftwo
+ \else \expandafter \@secondoftwo
+ \fi
+}%
+\providecommand \natexlab [1]{#1}%
+\providecommand \enquote  [1]{``#1''}%
+\providecommand \bibnamefont  [1]{#1}%
+\providecommand \bibfnamefont [1]{#1}%
+\providecommand \citenamefont [1]{#1}%
+\providecommand \href@noop [0]{\@secondoftwo}%
+\providecommand \href [0]{\begingroup \@sanitize@url \@href}%
+\providecommand \@href[1]{\@@startlink{#1}\@@href}%
+\providecommand \@@href[1]{\endgroup#1\@@endlink}%
+\providecommand \@sanitize@url [0]{\catcode `\\12\catcode `\$12\catcode
+  `\&12\catcode `\#12\catcode `\^12\catcode `\_12\catcode `\%12\relax}%
+\providecommand \@@startlink[1]{}%
+\providecommand \@@endlink[0]{}%
+\providecommand \url  [0]{\begingroup\@sanitize@url \@url }%
+\providecommand \@url [1]{\endgroup\@href {#1}{\urlprefix }}%
+\providecommand \urlprefix  [0]{URL }%
+\providecommand \Eprint [0]{\href }%
+\providecommand \doibase [0]{http://dx.doi.org/}%
+\providecommand \selectlanguage [0]{\@gobble}%
+\providecommand \bibinfo  [0]{\@secondoftwo}%
+\providecommand \bibfield  [0]{\@secondoftwo}%
+\providecommand \translation [1]{[#1]}%
+\providecommand \BibitemOpen [0]{}%
+\providecommand \bibitemStop [0]{}%
+\providecommand \bibitemNoStop [0]{.\EOS\space}%
+\providecommand \EOS [0]{\spacefactor3000\relax}%
+\providecommand \BibitemShut  [1]{\csname bibitem#1\endcsname}%
+\let\auto@bib@innerbib\@empty
+%</preamble>
+\bibitem [{\citenamefont {Abbott}\ \emph
+  {et~al.}(2016{\natexlab{a}})\citenamefont {Abbott} \emph {et~al.}}]{LIGO_01}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {B.~P.}\ \bibnamefont
+  {Abbott}} \emph {et~al.} (\bibinfo {collaboration} {LIGO Scientific,
+  Virgo}),\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Observation of
+  Gravitational Waves from a Binary Black Hole Merger}},}\ }\href {\doibase
+  10.1103/PhysRevLett.116.061102} {\bibfield  {journal} {\bibinfo  {journal}
+  {Phys. Rev. Lett.}\ }\textbf {\bibinfo {volume} {116}},\ \bibinfo {pages}
+  {061102} (\bibinfo {year} {2016}{\natexlab{a}})},\ \Eprint
+  {http://arxiv.org/abs/1602.03837} {arXiv:1602.03837 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Abbott}\ \emph
+  {et~al.}(2016{\natexlab{b}})\citenamefont {Abbott} \emph {et~al.}}]{LIGO_02}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {B.~P.}\ \bibnamefont
+  {Abbott}} \emph {et~al.} (\bibinfo {collaboration} {LIGO Scientific,
+  Virgo}),\ }\bibfield  {title} {\enquote {\bibinfo {title} {{GW151226:
+  Observation of Gravitational Waves from a 22-Solar-Mass Binary Black Hole
+  Coalescence}},}\ }\href {\doibase 10.1103/PhysRevLett.116.241103} {\bibfield
+  {journal} {\bibinfo  {journal} {Phys. Rev. Lett.}\ }\textbf {\bibinfo
+  {volume} {116}},\ \bibinfo {pages} {241103} (\bibinfo {year}
+  {2016}{\natexlab{b}})},\ \Eprint {http://arxiv.org/abs/1606.04855}
+  {arXiv:1606.04855 [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Abbott}\ \emph
+  {et~al.}(2017{\natexlab{a}})\citenamefont {Abbott} \emph {et~al.}}]{LIGO_03}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {B.~P.}\ \bibnamefont
+  {Abbott}} \emph {et~al.} (\bibinfo {collaboration} {LIGO Scientific,
+  VIRGO}),\ }\bibfield  {title} {\enquote {\bibinfo {title} {{GW170104:
+  Observation of a 50-Solar-Mass Binary Black Hole Coalescence at Redshift
+  0.2}},}\ }\href {\doibase 10.1103/PhysRevLett.118.221101} {\bibfield
+  {journal} {\bibinfo  {journal} {Phys. Rev. Lett.}\ }\textbf {\bibinfo
+  {volume} {118}},\ \bibinfo {pages} {221101} (\bibinfo {year}
+  {2017}{\natexlab{a}})},\ \bibinfo {note} {[Erratum: Phys.Rev.Lett. 121,
+  129901 (2018)]},\ \Eprint {http://arxiv.org/abs/1706.01812} {arXiv:1706.01812
+  [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Abbott}\ \emph
+  {et~al.}(2017{\natexlab{b}})\citenamefont {Abbott} \emph {et~al.}}]{LIGO_04}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {B.~. P.~.}\
+  \bibnamefont {Abbott}} \emph {et~al.} (\bibinfo {collaboration} {LIGO
+  Scientific, Virgo}),\ }\bibfield  {title} {\enquote {\bibinfo {title}
+  {{GW170608: Observation of a 19-solar-mass Binary Black Hole Coalescence}},}\
+  }\href {\doibase 10.3847/2041-8213/aa9f0c} {\bibfield  {journal} {\bibinfo
+  {journal} {Astrophys. J. Lett.}\ }\textbf {\bibinfo {volume} {851}},\
+  \bibinfo {pages} {L35} (\bibinfo {year} {2017}{\natexlab{b}})},\ \Eprint
+  {http://arxiv.org/abs/1711.05578} {arXiv:1711.05578 [astro-ph.HE]}
+  \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Abbott}\ \emph
+  {et~al.}(2017{\natexlab{c}})\citenamefont {Abbott} \emph {et~al.}}]{LIGO_05}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {B.~P.}\ \bibnamefont
+  {Abbott}} \emph {et~al.} (\bibinfo {collaboration} {LIGO Scientific,
+  Virgo}),\ }\bibfield  {title} {\enquote {\bibinfo {title} {{GW170814: A
+  Three-Detector Observation of Gravitational Waves from a Binary Black Hole
+  Coalescence}},}\ }\href {\doibase 10.1103/PhysRevLett.119.141101} {\bibfield
+  {journal} {\bibinfo  {journal} {Phys. Rev. Lett.}\ }\textbf {\bibinfo
+  {volume} {119}},\ \bibinfo {pages} {141101} (\bibinfo {year}
+  {2017}{\natexlab{c}})},\ \Eprint {http://arxiv.org/abs/1709.09660}
+  {arXiv:1709.09660 [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Abbott}\ \emph
+  {et~al.}(2017{\natexlab{d}})\citenamefont {Abbott} \emph {et~al.}}]{LIGO_06}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {B.~P.}\ \bibnamefont
+  {Abbott}} \emph {et~al.} (\bibinfo {collaboration} {LIGO Scientific,
+  Virgo}),\ }\bibfield  {title} {\enquote {\bibinfo {title} {{GW170817:
+  Observation of Gravitational Waves from a Binary Neutron Star Inspiral}},}\
+  }\href {\doibase 10.1103/PhysRevLett.119.161101} {\bibfield  {journal}
+  {\bibinfo  {journal} {Phys. Rev. Lett.}\ }\textbf {\bibinfo {volume} {119}},\
+  \bibinfo {pages} {161101} (\bibinfo {year} {2017}{\natexlab{d}})},\ \Eprint
+  {http://arxiv.org/abs/1710.05832} {arXiv:1710.05832 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Abbott}\ \emph
+  {et~al.}(2016{\natexlab{c}})\citenamefont {Abbott} \emph {et~al.}}]{LIGO_07}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {B.~P.}\ \bibnamefont
+  {Abbott}} \emph {et~al.} (\bibinfo {collaboration} {LIGO Scientific,
+  Virgo}),\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Tests of general
+  relativity with GW150914}},}\ }\href {\doibase
+  10.1103/PhysRevLett.116.221101} {\bibfield  {journal} {\bibinfo  {journal}
+  {Phys. Rev. Lett.}\ }\textbf {\bibinfo {volume} {116}},\ \bibinfo {pages}
+  {221101} (\bibinfo {year} {2016}{\natexlab{c}})},\ \bibinfo {note} {[Erratum:
+  Phys.Rev.Lett. 121, 129902 (2018)]},\ \Eprint
+  {http://arxiv.org/abs/1602.03841} {arXiv:1602.03841 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Abbott}\ \emph
+  {et~al.}(2016{\natexlab{d}})\citenamefont {Abbott} \emph {et~al.}}]{LIGO_08}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {B.~P.}\ \bibnamefont
+  {Abbott}} \emph {et~al.} (\bibinfo {collaboration} {LIGO Scientific,
+  Virgo}),\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Binary Black Hole
+  Mergers in the first Advanced LIGO Observing Run}},}\ }\href {\doibase
+  10.1103/PhysRevX.6.041015} {\bibfield  {journal} {\bibinfo  {journal} {Phys.
+  Rev. X}\ }\textbf {\bibinfo {volume} {6}},\ \bibinfo {pages} {041015}
+  (\bibinfo {year} {2016}{\natexlab{d}})},\ \bibinfo {note} {[Erratum:
+  Phys.Rev.X 8, 039903 (2018)]},\ \Eprint {http://arxiv.org/abs/1606.04856}
+  {arXiv:1606.04856 [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Abbott}\ \emph {et~al.}(2018)\citenamefont {Abbott}
+  \emph {et~al.}}]{LIGO_09}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {B.~P.}\ \bibnamefont
+  {Abbott}} \emph {et~al.} (\bibinfo {collaboration} {KAGRA, LIGO Scientific,
+  Virgo, VIRGO}),\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Prospects
+  for observing and localizing gravitational-wave transients with Advanced
+  LIGO, Advanced Virgo and KAGRA}},}\ }\href {\doibase
+  10.1007/s41114-020-00026-9} {\bibfield  {journal} {\bibinfo  {journal}
+  {Living Rev. Rel.}\ }\textbf {\bibinfo {volume} {21}},\ \bibinfo {pages} {3}
+  (\bibinfo {year} {2018})},\ \Eprint {http://arxiv.org/abs/1304.0670}
+  {arXiv:1304.0670 [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Abbott}\ \emph
+  {et~al.}(2019{\natexlab{a}})\citenamefont {Abbott} \emph {et~al.}}]{LIGO_10}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {B.~P.}\ \bibnamefont
+  {Abbott}} \emph {et~al.} (\bibinfo {collaboration} {LIGO Scientific,
+  Virgo}),\ }\bibfield  {title} {\enquote {\bibinfo {title} {{GWTC-1: A
+  Gravitational-Wave Transient Catalog of Compact Binary Mergers Observed by
+  LIGO and Virgo during the First and Second Observing Runs}},}\ }\href
+  {\doibase 10.1103/PhysRevX.9.031040} {\bibfield  {journal} {\bibinfo
+  {journal} {Phys. Rev. X}\ }\textbf {\bibinfo {volume} {9}},\ \bibinfo {pages}
+  {031040} (\bibinfo {year} {2019}{\natexlab{a}})},\ \Eprint
+  {http://arxiv.org/abs/1811.12907} {arXiv:1811.12907 [astro-ph.HE]}
+  \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Abbott}\ \emph
+  {et~al.}(2019{\natexlab{b}})\citenamefont {Abbott} \emph {et~al.}}]{LIGO_11}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {B.~P.}\ \bibnamefont
+  {Abbott}} \emph {et~al.} (\bibinfo {collaboration} {LIGO Scientific,
+  Virgo}),\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Tests of General
+  Relativity with the Binary Black Hole Signals from the LIGO-Virgo Catalog
+  GWTC-1}},}\ }\href {\doibase 10.1103/PhysRevD.100.104036} {\bibfield
+  {journal} {\bibinfo  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo {volume}
+  {100}},\ \bibinfo {pages} {104036} (\bibinfo {year} {2019}{\natexlab{b}})},\
+  \Eprint {http://arxiv.org/abs/1903.04467} {arXiv:1903.04467 [gr-qc]}
+  \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Abbott}\ \emph
+  {et~al.}(2020{\natexlab{a}})\citenamefont {Abbott} \emph
+  {et~al.}}]{LIGO_GW190412}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {R.}~\bibnamefont
+  {Abbott}} \emph {et~al.} (\bibinfo {collaboration} {LIGO Scientific,
+  Virgo}),\ }\bibfield  {title} {\enquote {\bibinfo {title} {{GW190412:
+  Observation of a Binary-Black-Hole Coalescence with Asymmetric Masses}},}\
+  }\href {\doibase 10.1103/PhysRevD.102.043015} {\bibfield  {journal} {\bibinfo
+   {journal} {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {102}},\ \bibinfo
+  {pages} {043015} (\bibinfo {year} {2020}{\natexlab{a}})},\ \Eprint
+  {http://arxiv.org/abs/2004.08342} {arXiv:2004.08342 [astro-ph.HE]}
+  \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Abbott}\ \emph
+  {et~al.}(2020{\natexlab{b}})\citenamefont {Abbott} \emph
+  {et~al.}}]{LIGO_GW190814}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {R.}~\bibnamefont
+  {Abbott}} \emph {et~al.} (\bibinfo {collaboration} {LIGO Scientific,
+  Virgo}),\ }\bibfield  {title} {\enquote {\bibinfo {title} {{GW190814:
+  Gravitational Waves from the Coalescence of a 23 Solar Mass Black Hole with a
+  2.6 Solar Mass Compact Object}},}\ }\href {\doibase 10.3847/2041-8213/ab960f}
+  {\bibfield  {journal} {\bibinfo  {journal} {Astrophys. J. Lett.}\ }\textbf
+  {\bibinfo {volume} {896}},\ \bibinfo {pages} {L44} (\bibinfo {year}
+  {2020}{\natexlab{b}})},\ \Eprint {http://arxiv.org/abs/2006.12611}
+  {arXiv:2006.12611 [astro-ph.HE]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Takahashi}\ and\ \citenamefont
+  {Nakamura}(2003)}]{Takahashi:2003ix}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {R.}~\bibnamefont
+  {Takahashi}}\ and\ \bibinfo {author} {\bibfnamefont {T.}~\bibnamefont
+  {Nakamura}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Wave effects
+  in gravitational lensing of gravitational waves from chirping binaries}},}\
+  }\href {\doibase 10.1086/377430} {\bibfield  {journal} {\bibinfo  {journal}
+  {Astrophys. J.}\ }\textbf {\bibinfo {volume} {595}},\ \bibinfo {pages}
+  {1039--1051} (\bibinfo {year} {2003})},\ \Eprint
+  {http://arxiv.org/abs/astro-ph/0305055} {arXiv:astro-ph/0305055} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Abbott}\ \emph
+  {et~al.}(2021{\natexlab{a}})\citenamefont {Abbott} \emph
+  {et~al.}}]{LIGOScientific:2021sio}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {R.}~\bibnamefont
+  {Abbott}} \emph {et~al.} (\bibinfo {collaboration} {LIGO Scientific, VIRGO,
+  KAGRA}),\ }\href@noop {} {\enquote {\bibinfo {title} {{Tests of General
+  Relativity with GWTC-3}},}\ } (\bibinfo {year} {2021}{\natexlab{a}}),\
+  \Eprint {http://arxiv.org/abs/2112.06861} {arXiv:2112.06861 [gr-qc]}
+  \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Perkins}\ and\ \citenamefont
+  {Yunes}(2022)}]{Perkins:2022fhr}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {S.}~\bibnamefont
+  {Perkins}}\ and\ \bibinfo {author} {\bibfnamefont {N.}~\bibnamefont
+  {Yunes}},\ }\href@noop {} {\enquote {\bibinfo {title} {{Are Parametrized
+  Tests of General Relativity with Gravitational Waves Robust to Unknown Higher
+  Post-Newtonian Order Effects?}}}\ } (\bibinfo {year} {2022}),\ \Eprint
+  {http://arxiv.org/abs/2201.02542} {arXiv:2201.02542 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Yunes}\ and\ \citenamefont
+  {Siemens}(2013)}]{Yunes:2013dva}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {N.}~\bibnamefont
+  {Yunes}}\ and\ \bibinfo {author} {\bibfnamefont {X.}~\bibnamefont
+  {Siemens}},\ }\bibfield  {title} {\enquote {\bibinfo {title}
+  {{Gravitational-Wave Tests of General Relativity with Ground-Based Detectors
+  and Pulsar Timing-Arrays}},}\ }\href {\doibase 10.12942/lrr-2013-9}
+  {\bibfield  {journal} {\bibinfo  {journal} {Living Rev. Rel.}\ }\textbf
+  {\bibinfo {volume} {16}},\ \bibinfo {pages} {9} (\bibinfo {year} {2013})},\
+  \Eprint {http://arxiv.org/abs/1304.3473} {arXiv:1304.3473 [gr-qc]}
+  \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Will}(2014)}]{Will2014}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {C.~M.}\ \bibnamefont
+  {Will}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {The confrontation
+  between general relativity and experiment},}\ }\href {\doibase
+  10.12942/lrr-2014-4} {\bibfield  {journal} {\bibinfo  {journal} {Living
+  Reviews in Relativity}\ }\textbf {\bibinfo {volume} {17}},\ \bibinfo {pages}
+  {4} (\bibinfo {year} {2014})}\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Stairs}(2003)}]{Stairs2003}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {I.~H.}\ \bibnamefont
+  {Stairs}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {Testing general
+  relativity with pulsar timing},}\ }\href {\doibase 10.12942/lrr-2003-5}
+  {\bibfield  {journal} {\bibinfo  {journal} {Living Reviews in Relativity}\
+  }\textbf {\bibinfo {volume} {6}},\ \bibinfo {pages} {5} (\bibinfo {year}
+  {2003})}\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Wex}\ and\ \citenamefont
+  {Kramer}(2020)}]{Wex:2020ald}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {N.}~\bibnamefont
+  {Wex}}\ and\ \bibinfo {author} {\bibfnamefont {M.}~\bibnamefont {Kramer}},\
+  }\bibfield  {title} {\enquote {\bibinfo {title} {{Gravity Tests with Radio
+  Pulsars}},}\ }\href {\doibase 10.3390/universe6090156} {\bibfield  {journal}
+  {\bibinfo  {journal} {Universe}\ }\textbf {\bibinfo {volume} {6}},\ \bibinfo
+  {pages} {156} (\bibinfo {year} {2020})}\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Yagi}\ and\ \citenamefont
+  {Stein}(2016)}]{Yagi:2016jml}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {K.}~\bibnamefont
+  {Yagi}}\ and\ \bibinfo {author} {\bibfnamefont {L.~C.}\ \bibnamefont
+  {Stein}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Black Hole Based
+  Tests of General Relativity}},}\ }\href {\doibase
+  10.1088/0264-9381/33/5/054001} {\bibfield  {journal} {\bibinfo  {journal}
+  {Class. Quant. Grav.}\ }\textbf {\bibinfo {volume} {33}},\ \bibinfo {pages}
+  {054001} (\bibinfo {year} {2016})},\ \Eprint
+  {http://arxiv.org/abs/1602.02413} {arXiv:1602.02413 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Berti}\ \emph
+  {et~al.}(2018{\natexlab{a}})\citenamefont {Berti}, \citenamefont {Yagi},\
+  and\ \citenamefont {Yunes}}]{Berti:2018cxi}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {E.}~\bibnamefont
+  {Berti}}, \bibinfo {author} {\bibfnamefont {K.}~\bibnamefont {Yagi}}, \ and\
+  \bibinfo {author} {\bibfnamefont {N.}~\bibnamefont {Yunes}},\ }\bibfield
+  {title} {\enquote {\bibinfo {title} {{Extreme Gravity Tests with
+  Gravitational Waves from Compact Binary Coalescences: (I)
+  Inspiral-Merger}},}\ }\href {\doibase 10.1007/s10714-018-2362-8} {\bibfield
+  {journal} {\bibinfo  {journal} {Gen. Rel. Grav.}\ }\textbf {\bibinfo {volume}
+  {50}},\ \bibinfo {pages} {46} (\bibinfo {year} {2018}{\natexlab{a}})},\
+  \Eprint {http://arxiv.org/abs/1801.03208} {arXiv:1801.03208 [gr-qc]}
+  \BibitemShut {NoStop}%
+%%CITATION = ARXIV:1801.03208;%%
+\bibitem [{\citenamefont {Nair}\ \emph {et~al.}(2019)\citenamefont {Nair},
+  \citenamefont {Perkins}, \citenamefont {Silva},\ and\ \citenamefont
+  {Yunes}}]{Nair:2019iur}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {R.}~\bibnamefont
+  {Nair}}, \bibinfo {author} {\bibfnamefont {S.}~\bibnamefont {Perkins}},
+  \bibinfo {author} {\bibfnamefont {H.~O.}\ \bibnamefont {Silva}}, \ and\
+  \bibinfo {author} {\bibfnamefont {N.}~\bibnamefont {Yunes}},\ }\bibfield
+  {title} {\enquote {\bibinfo {title} {{Fundamental Physics Implications for
+  Higher-Curvature Theories from Binary Black Hole Signals in the LIGO-Virgo
+  Catalog GWTC-1}},}\ }\href {\doibase 10.1103/PhysRevLett.123.191101}
+  {\bibfield  {journal} {\bibinfo  {journal} {Phys. Rev. Lett.}\ }\textbf
+  {\bibinfo {volume} {123}},\ \bibinfo {pages} {191101} (\bibinfo {year}
+  {2019})},\ \Eprint {http://arxiv.org/abs/1905.00870} {arXiv:1905.00870
+  [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Berti}\ \emph
+  {et~al.}(2018{\natexlab{b}})\citenamefont {Berti}, \citenamefont {Yagi},
+  \citenamefont {Yang},\ and\ \citenamefont {Yunes}}]{Berti:2018vdi}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {E.}~\bibnamefont
+  {Berti}}, \bibinfo {author} {\bibfnamefont {K.}~\bibnamefont {Yagi}},
+  \bibinfo {author} {\bibfnamefont {H.}~\bibnamefont {Yang}}, \ and\ \bibinfo
+  {author} {\bibfnamefont {N.}~\bibnamefont {Yunes}},\ }\bibfield  {title}
+  {\enquote {\bibinfo {title} {{Extreme Gravity Tests with Gravitational Waves
+  from Compact Binary Coalescences: (II) Ringdown}},}\ }\href {\doibase
+  10.1007/s10714-018-2372-6} {\bibfield  {journal} {\bibinfo  {journal} {Gen.
+  Rel. Grav.}\ }\textbf {\bibinfo {volume} {50}},\ \bibinfo {pages} {49}
+  (\bibinfo {year} {2018}{\natexlab{b}})},\ \Eprint
+  {http://arxiv.org/abs/1801.03587} {arXiv:1801.03587 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Hawking}(2015)}]{Hawking:2015qqa}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {S.~W.}\ \bibnamefont
+  {Hawking}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{The
+  Information Paradox for Black Holes}},}\ \ }(\bibinfo {year} {2015})\ \Eprint
+  {http://arxiv.org/abs/1509.01147} {arXiv:1509.01147 [hep-th]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Almheiri}\ \emph {et~al.}(2020)\citenamefont
+  {Almheiri}, \citenamefont {Hartman}, \citenamefont {Maldacena}, \citenamefont
+  {Shaghoulian},\ and\ \citenamefont {Tajdini}}]{Almheiri:2019qdq}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {A.}~\bibnamefont
+  {Almheiri}}, \bibinfo {author} {\bibfnamefont {T.}~\bibnamefont {Hartman}},
+  \bibinfo {author} {\bibfnamefont {J.}~\bibnamefont {Maldacena}}, \bibinfo
+  {author} {\bibfnamefont {E.}~\bibnamefont {Shaghoulian}}, \ and\ \bibinfo
+  {author} {\bibfnamefont {A.}~\bibnamefont {Tajdini}},\ }\bibfield  {title}
+  {\enquote {\bibinfo {title} {{Replica Wormholes and the Entropy of Hawking
+  Radiation}},}\ }\href {\doibase 10.1007/JHEP05(2020)013} {\bibfield
+  {journal} {\bibinfo  {journal} {JHEP}\ }\textbf {\bibinfo {volume} {05}},\
+  \bibinfo {pages} {013} (\bibinfo {year} {2020})},\ \Eprint
+  {http://arxiv.org/abs/1911.12333} {arXiv:1911.12333 [hep-th]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Giddings}(1995)}]{Giddings:1995gd}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {S.~B.}\ \bibnamefont
+  {Giddings}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{The Black
+  hole information paradox}},}\ }in\ \href@noop {} {\emph {\bibinfo {booktitle}
+  {{PASCOS / HOPKINS 1995 (Joint Meeting of the International Symposium on
+  Particles, Strings and Cosmology and the 19th Johns Hopkins Workshop on
+  Current Problems in Particle Theory)}}}}\ (\bibinfo {year} {1995})\ pp.\
+  \bibinfo {pages} {415--428},\ \Eprint {http://arxiv.org/abs/hep-th/9508151}
+  {arXiv:hep-th/9508151} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Preskill}(1992)}]{Preskill:1992tc}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {J.}~\bibnamefont
+  {Preskill}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Do black
+  holes destroy information?}}}\ }in\ \href@noop {} {\emph {\bibinfo
+  {booktitle} {{International Symposium on Black holes, Membranes, Wormholes
+  and Superstrings}}}}\ (\bibinfo {year} {1992})\ \Eprint
+  {http://arxiv.org/abs/hep-th/9209058} {arXiv:hep-th/9209058} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Kanitscheider}\ \emph {et~al.}(2007)\citenamefont
+  {Kanitscheider}, \citenamefont {Skenderis},\ and\ \citenamefont
+  {Taylor}}]{Kanitscheider:2007wq}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {I.}~\bibnamefont
+  {Kanitscheider}}, \bibinfo {author} {\bibfnamefont {K.}~\bibnamefont
+  {Skenderis}}, \ and\ \bibinfo {author} {\bibfnamefont {M.}~\bibnamefont
+  {Taylor}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Fuzzballs with
+  internal excitations}},}\ }\href {\doibase 10.1088/1126-6708/2007/06/056}
+  {\bibfield  {journal} {\bibinfo  {journal} {JHEP}\ }\textbf {\bibinfo
+  {volume} {06}},\ \bibinfo {pages} {056} (\bibinfo {year} {2007})},\ \Eprint
+  {http://arxiv.org/abs/0704.0690} {arXiv:0704.0690 [hep-th]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Bena}\ \emph {et~al.}(2016)\citenamefont {Bena},
+  \citenamefont {Giusto}, \citenamefont {Martinec}, \citenamefont {Russo},
+  \citenamefont {Shigemori}, \citenamefont {Turton},\ and\ \citenamefont
+  {Warner}}]{Bena:2016ypk}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {I.}~\bibnamefont
+  {Bena}}, \bibinfo {author} {\bibfnamefont {S.}~\bibnamefont {Giusto}},
+  \bibinfo {author} {\bibfnamefont {E.~J.}\ \bibnamefont {Martinec}}, \bibinfo
+  {author} {\bibfnamefont {R.}~\bibnamefont {Russo}}, \bibinfo {author}
+  {\bibfnamefont {M.}~\bibnamefont {Shigemori}}, \bibinfo {author}
+  {\bibfnamefont {D.}~\bibnamefont {Turton}}, \ and\ \bibinfo {author}
+  {\bibfnamefont {N.~P.}\ \bibnamefont {Warner}},\ }\bibfield  {title}
+  {\enquote {\bibinfo {title} {{Smooth horizonless geometries deep inside the
+  black-hole regime}},}\ }\href {\doibase 10.1103/PhysRevLett.117.201601}
+  {\bibfield  {journal} {\bibinfo  {journal} {Phys. Rev. Lett.}\ }\textbf
+  {\bibinfo {volume} {117}},\ \bibinfo {pages} {201601} (\bibinfo {year}
+  {2016})},\ \Eprint {http://arxiv.org/abs/1607.03908} {arXiv:1607.03908
+  [hep-th]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Sakharov}(1967)}]{Sakharov:1967dj}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {A.~D.}\ \bibnamefont
+  {Sakharov}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Violation of
+  CP Invariance, C asymmetry, and baryon asymmetry of the universe}},}\ }\href
+  {\doibase 10.1070/PU1991v034n05ABEH002497} {\bibfield  {journal} {\bibinfo
+  {journal} {Pisma Zh. Eksp. Teor. Fiz.}\ }\textbf {\bibinfo {volume} {5}},\
+  \bibinfo {pages} {32--35} (\bibinfo {year} {1967})}\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Petraki}\ and\ \citenamefont
+  {Volkas}(2013)}]{Petraki:2013wwa}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {K.}~\bibnamefont
+  {Petraki}}\ and\ \bibinfo {author} {\bibfnamefont {R.~R.}\ \bibnamefont
+  {Volkas}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Review of
+  asymmetric dark matter}},}\ }\href {\doibase 10.1142/S0217751X13300287}
+  {\bibfield  {journal} {\bibinfo  {journal} {Int. J. Mod. Phys. A}\ }\textbf
+  {\bibinfo {volume} {28}},\ \bibinfo {pages} {1330028} (\bibinfo {year}
+  {2013})},\ \Eprint {http://arxiv.org/abs/1305.4939} {arXiv:1305.4939
+  [hep-ph]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Gell-Mann}\ and\ \citenamefont
+  {Hartle}(1991)}]{Gell-Mann:1991kdm}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {M.}~\bibnamefont
+  {Gell-Mann}}\ and\ \bibinfo {author} {\bibfnamefont {J.~B.}\ \bibnamefont
+  {Hartle}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Time symmetry
+  and asymmetry in quantum mechanics and quantum cosmology}},}\ }in\ \href@noop
+  {} {\emph {\bibinfo {booktitle} {{4th International Conference on Ion
+  Sources}}}}\ (\bibinfo {year} {1991})\ \Eprint
+  {http://arxiv.org/abs/gr-qc/9304023} {arXiv:gr-qc/9304023} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Alexander}\ \emph {et~al.}(2006)\citenamefont
+  {Alexander}, \citenamefont {Peskin},\ and\ \citenamefont
+  {Sheikh-Jabbari}}]{Alexander:2004us}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {S.~H.~S.}\
+  \bibnamefont {Alexander}}, \bibinfo {author} {\bibfnamefont {M.~E.}\
+  \bibnamefont {Peskin}}, \ and\ \bibinfo {author} {\bibfnamefont {M.~M.}\
+  \bibnamefont {Sheikh-Jabbari}},\ }\bibfield  {title} {\enquote {\bibinfo
+  {title} {Leptogenesis from gravity waves in models of inflation},}\ }\href
+  {\doibase 10.1103/PhysRevLett.96.081301} {\bibfield  {journal} {\bibinfo
+  {journal} {Phys. Rev. Lett.}\ }\textbf {\bibinfo {volume} {96}},\ \bibinfo
+  {pages} {081301} (\bibinfo {year} {2006})}\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Nojiri}\ and\ \citenamefont
+  {Odintsov}(2006)}]{Nojiri:2006ri}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {S.}~\bibnamefont
+  {Nojiri}}\ and\ \bibinfo {author} {\bibfnamefont {S.~D.}\ \bibnamefont
+  {Odintsov}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Introduction
+  to modified gravity and gravitational alternative for dark energy}},}\ }\href
+  {\doibase 10.1142/S0219887807001928} {\bibfield  {journal} {\bibinfo
+  {journal} {eConf}\ }\textbf {\bibinfo {volume} {C0602061}},\ \bibinfo {pages}
+  {06} (\bibinfo {year} {2006})},\ \Eprint
+  {http://arxiv.org/abs/hep-th/0601213} {arXiv:hep-th/0601213} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Tsujikawa}(2010)}]{Tsujikawa:2010zza}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {S.}~\bibnamefont
+  {Tsujikawa}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Modified
+  gravity models of dark energy}},}\ }\href {\doibase
+  10.1007/978-3-642-10598-2_3} {\bibfield  {journal} {\bibinfo  {journal}
+  {Lect. Notes Phys.}\ }\textbf {\bibinfo {volume} {800}},\ \bibinfo {pages}
+  {99--145} (\bibinfo {year} {2010})},\ \Eprint
+  {http://arxiv.org/abs/1101.0191} {arXiv:1101.0191 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Perlmutter}\ \emph {et~al.}(1999)\citenamefont
+  {Perlmutter} \emph {et~al.}}]{late_time_acceleration_01}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {S.}~\bibnamefont
+  {Perlmutter}} \emph {et~al.} (\bibinfo {collaboration} {Supernova Cosmology
+  Project}),\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Measurements of
+  $\Omega$ and $\Lambda$ from 42 high redshift supernovae}},}\ }\href {\doibase
+  10.1086/307221} {\bibfield  {journal} {\bibinfo  {journal} {Astrophys. J.}\
+  }\textbf {\bibinfo {volume} {517}},\ \bibinfo {pages} {565--586} (\bibinfo
+  {year} {1999})},\ \Eprint {http://arxiv.org/abs/astro-ph/9812133}
+  {arXiv:astro-ph/9812133} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Riess}\ \emph {et~al.}(1998)\citenamefont {Riess}
+  \emph {et~al.}}]{late_time_acceleration_02}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {A.~G.}\ \bibnamefont
+  {Riess}} \emph {et~al.} (\bibinfo {collaboration} {Supernova Search Team}),\
+  }\bibfield  {title} {\enquote {\bibinfo {title} {{Observational evidence from
+  supernovae for an accelerating universe and a cosmological constant}},}\
+  }\href {\doibase 10.1086/300499} {\bibfield  {journal} {\bibinfo  {journal}
+  {Astron. J.}\ }\textbf {\bibinfo {volume} {116}},\ \bibinfo {pages}
+  {1009--1038} (\bibinfo {year} {1998})},\ \Eprint
+  {http://arxiv.org/abs/astro-ph/9805201} {arXiv:astro-ph/9805201} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Sofue}\ and\ \citenamefont
+  {Rubin}(2001)}]{rotation_curve_01}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {Y.}~\bibnamefont
+  {Sofue}}\ and\ \bibinfo {author} {\bibfnamefont {V.}~\bibnamefont {Rubin}},\
+  }\bibfield  {title} {\enquote {\bibinfo {title} {{Rotation curves of spiral
+  galaxies}},}\ }\href {\doibase 10.1146/annurev.astro.39.1.137} {\bibfield
+  {journal} {\bibinfo  {journal} {Ann. Rev. Astron. Astrophys.}\ }\textbf
+  {\bibinfo {volume} {39}},\ \bibinfo {pages} {137--174} (\bibinfo {year}
+  {2001})},\ \Eprint {http://arxiv.org/abs/astro-ph/0010594}
+  {arXiv:astro-ph/0010594} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Bertone}\ and\ \citenamefont
+  {Hooper}(2018)}]{rotation_curve_02}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {G.}~\bibnamefont
+  {Bertone}}\ and\ \bibinfo {author} {\bibfnamefont {D.}~\bibnamefont
+  {Hooper}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{History of dark
+  matter}},}\ }\href {\doibase 10.1103/RevModPhys.90.045002} {\bibfield
+  {journal} {\bibinfo  {journal} {Rev. Mod. Phys.}\ }\textbf {\bibinfo {volume}
+  {90}},\ \bibinfo {pages} {045002} (\bibinfo {year} {2018})},\ \Eprint
+  {http://arxiv.org/abs/1605.04909} {arXiv:1605.04909 [astro-ph.CO]}
+  \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Alexander}\ and\ \citenamefont
+  {Yunes}(2009)}]{dCS_01}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {S.}~\bibnamefont
+  {Alexander}}\ and\ \bibinfo {author} {\bibfnamefont {N.}~\bibnamefont
+  {Yunes}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Chern-Simons
+  Modified General Relativity}},}\ }\href {\doibase
+  10.1016/j.physrep.2009.07.002} {\bibfield  {journal} {\bibinfo  {journal}
+  {Phys. Rept.}\ }\textbf {\bibinfo {volume} {480}},\ \bibinfo {pages} {1--55}
+  (\bibinfo {year} {2009})},\ \Eprint {http://arxiv.org/abs/0907.2562}
+  {arXiv:0907.2562 [hep-th]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Jackiw}\ and\ \citenamefont {Pi}(2003)}]{dCS_02}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {R.}~\bibnamefont
+  {Jackiw}}\ and\ \bibinfo {author} {\bibfnamefont {S.~Y.}\ \bibnamefont
+  {Pi}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Chern-Simons
+  modification of general relativity}},}\ }\href {\doibase
+  10.1103/PhysRevD.68.104012} {\bibfield  {journal} {\bibinfo  {journal} {Phys.
+  Rev. D}\ }\textbf {\bibinfo {volume} {68}},\ \bibinfo {pages} {104012}
+  (\bibinfo {year} {2003})},\ \Eprint {http://arxiv.org/abs/gr-qc/0308071}
+  {arXiv:gr-qc/0308071} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Alexander}\ and\ \citenamefont
+  {Gates}(2006)}]{dCS_03}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {S.~H.~S.}\
+  \bibnamefont {Alexander}}\ and\ \bibinfo {author} {\bibfnamefont {S.~J.}\
+  \bibnamefont {Gates}, \bibfnamefont {Jr.}},\ }\bibfield  {title} {\enquote
+  {\bibinfo {title} {{Can the string scale be related to the cosmic baryon
+  asymmetry?}}}\ }\href {\doibase 10.1088/1475-7516/2006/06/018} {\bibfield
+  {journal} {\bibinfo  {journal} {JCAP}\ }\textbf {\bibinfo {volume} {06}},\
+  \bibinfo {pages} {018} (\bibinfo {year} {2006})},\ \Eprint
+  {http://arxiv.org/abs/hep-th/0409014} {arXiv:hep-th/0409014} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Kanti}\ \emph {et~al.}(1996)\citenamefont {Kanti},
+  \citenamefont {Mavromatos}, \citenamefont {Rizos}, \citenamefont {Tamvakis},\
+  and\ \citenamefont {Winstanley}}]{EdGB_01}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {P.}~\bibnamefont
+  {Kanti}}, \bibinfo {author} {\bibfnamefont {N.~E.}\ \bibnamefont
+  {Mavromatos}}, \bibinfo {author} {\bibfnamefont {J.}~\bibnamefont {Rizos}},
+  \bibinfo {author} {\bibfnamefont {K.}~\bibnamefont {Tamvakis}}, \ and\
+  \bibinfo {author} {\bibfnamefont {E.}~\bibnamefont {Winstanley}},\ }\bibfield
+   {title} {\enquote {\bibinfo {title} {{Dilatonic black holes in higher
+  curvature string gravity}},}\ }\href {\doibase 10.1103/PhysRevD.54.5049}
+  {\bibfield  {journal} {\bibinfo  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo
+  {volume} {54}},\ \bibinfo {pages} {5049--5058} (\bibinfo {year} {1996})},\
+  \Eprint {http://arxiv.org/abs/hep-th/9511071} {arXiv:hep-th/9511071}
+  \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Maeda}\ \emph {et~al.}(2009)\citenamefont {Maeda},
+  \citenamefont {Ohta},\ and\ \citenamefont {Sasagawa}}]{EdGB_02}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {K.-i.}\ \bibnamefont
+  {Maeda}}, \bibinfo {author} {\bibfnamefont {N.}~\bibnamefont {Ohta}}, \ and\
+  \bibinfo {author} {\bibfnamefont {Y.}~\bibnamefont {Sasagawa}},\ }\bibfield
+  {title} {\enquote {\bibinfo {title} {{Black Hole Solutions in String Theory
+  with Gauss-Bonnet Curvature Correction}},}\ }\href {\doibase
+  10.1103/PhysRevD.80.104032} {\bibfield  {journal} {\bibinfo  {journal} {Phys.
+  Rev. D}\ }\textbf {\bibinfo {volume} {80}},\ \bibinfo {pages} {104032}
+  (\bibinfo {year} {2009})},\ \Eprint {http://arxiv.org/abs/0908.4151}
+  {arXiv:0908.4151 [hep-th]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Sotiriou}\ and\ \citenamefont
+  {Zhou}(2014)}]{EdGB_03}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {T.~P.}\ \bibnamefont
+  {Sotiriou}}\ and\ \bibinfo {author} {\bibfnamefont {S.-Y.}\ \bibnamefont
+  {Zhou}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Black hole hair
+  in generalized scalar-tensor gravity}},}\ }\href {\doibase
+  10.1103/PhysRevLett.112.251102} {\bibfield  {journal} {\bibinfo  {journal}
+  {Phys. Rev. Lett.}\ }\textbf {\bibinfo {volume} {112}},\ \bibinfo {pages}
+  {251102} (\bibinfo {year} {2014})},\ \Eprint {http://arxiv.org/abs/1312.3622}
+  {arXiv:1312.3622 [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Mignemi}\ and\ \citenamefont
+  {Stewart}(1993)}]{EdGB_04}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {S.}~\bibnamefont
+  {Mignemi}}\ and\ \bibinfo {author} {\bibfnamefont {N.~R.}\ \bibnamefont
+  {Stewart}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Charged black
+  holes in effective string theory}},}\ }\href {\doibase
+  10.1103/PhysRevD.47.5259} {\bibfield  {journal} {\bibinfo  {journal} {Phys.
+  Rev. D}\ }\textbf {\bibinfo {volume} {47}},\ \bibinfo {pages} {5259--5269}
+  (\bibinfo {year} {1993})},\ \Eprint {http://arxiv.org/abs/hep-th/9212146}
+  {arXiv:hep-th/9212146} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Chung}\ \emph {et~al.}(2023)\citenamefont {Chung},
+  \citenamefont {Wagle},\ and\ \citenamefont {Yunes}}]{Chung:2023zdq}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {A.~K.-W.}\
+  \bibnamefont {Chung}}, \bibinfo {author} {\bibfnamefont {P.}~\bibnamefont
+  {Wagle}}, \ and\ \bibinfo {author} {\bibfnamefont {N.}~\bibnamefont
+  {Yunes}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Spectral method
+  for the gravitational perturbations of black holes: Schwarzschild background
+  case}},}\ }\href {\doibase 10.1103/PhysRevD.107.124032} {\bibfield  {journal}
+  {\bibinfo  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {107}},\
+  \bibinfo {pages} {124032} (\bibinfo {year} {2023})},\ \Eprint
+  {http://arxiv.org/abs/2302.11624} {arXiv:2302.11624 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Abbott}\ \emph
+  {et~al.}(2021{\natexlab{b}})\citenamefont {Abbott} \emph
+  {et~al.}}]{LIGOScientific:2021djp}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {R.}~\bibnamefont
+  {Abbott}} \emph {et~al.} (\bibinfo {collaboration} {LIGO Scientific, VIRGO,
+  KAGRA}),\ }\href@noop {} {\enquote {\bibinfo {title} {{GWTC-3: Compact Binary
+  Coalescences Observed by LIGO and Virgo During the Second Part of the Third
+  Observing Run}},}\ } (\bibinfo {year} {2021}{\natexlab{b}}),\ \Eprint
+  {http://arxiv.org/abs/2111.03606} {arXiv:2111.03606 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Yunes}\ and\ \citenamefont
+  {Pretorius}(2009)}]{Yunes:2009hc}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {N.}~\bibnamefont
+  {Yunes}}\ and\ \bibinfo {author} {\bibfnamefont {F.}~\bibnamefont
+  {Pretorius}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Dynamical
+  Chern-Simons Modified Gravity. I. Spinning Black Holes in the Slow-Rotation
+  Approximation}},}\ }\href {\doibase 10.1103/PhysRevD.79.084043} {\bibfield
+  {journal} {\bibinfo  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo {volume}
+  {79}},\ \bibinfo {pages} {084043} (\bibinfo {year} {2009})},\ \Eprint
+  {http://arxiv.org/abs/0902.4669} {arXiv:0902.4669 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Yunes}\ and\ \citenamefont
+  {Stein}(2011)}]{Yunes:2011we}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {N.}~\bibnamefont
+  {Yunes}}\ and\ \bibinfo {author} {\bibfnamefont {L.~C.}\ \bibnamefont
+  {Stein}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Non-Spinning
+  Black Holes in Alternative Theories of Gravity}},}\ }\href {\doibase
+  10.1103/PhysRevD.83.104002} {\bibfield  {journal} {\bibinfo  {journal} {Phys.
+  Rev. D}\ }\textbf {\bibinfo {volume} {83}},\ \bibinfo {pages} {104002}
+  (\bibinfo {year} {2011})},\ \Eprint {http://arxiv.org/abs/1101.2921}
+  {arXiv:1101.2921 [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Arest\'e~Sal\'o}\ \emph {et~al.}(2023)\citenamefont
+  {Arest\'e~Sal\'o}, \citenamefont {Brady}, \citenamefont {Clough},
+  \citenamefont {Doneva}, \citenamefont {Evstafyeva}, \citenamefont {Figueras},
+  \citenamefont {Fran\c{c}a}, \citenamefont {Rossi},\ and\ \citenamefont
+  {Yao}}]{AresteSalo:2023hcp}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {L.}~\bibnamefont
+  {Arest\'e~Sal\'o}}, \bibinfo {author} {\bibfnamefont {S.~E.}\ \bibnamefont
+  {Brady}}, \bibinfo {author} {\bibfnamefont {K.}~\bibnamefont {Clough}},
+  \bibinfo {author} {\bibfnamefont {D.}~\bibnamefont {Doneva}}, \bibinfo
+  {author} {\bibfnamefont {T.}~\bibnamefont {Evstafyeva}}, \bibinfo {author}
+  {\bibfnamefont {P.}~\bibnamefont {Figueras}}, \bibinfo {author}
+  {\bibfnamefont {T.}~\bibnamefont {Fran\c{c}a}}, \bibinfo {author}
+  {\bibfnamefont {L.}~\bibnamefont {Rossi}}, \ and\ \bibinfo {author}
+  {\bibfnamefont {S.}~\bibnamefont {Yao}},\ }\bibfield  {title} {\enquote
+  {\bibinfo {title} {{GRFolres: A code for modified gravity simulations in
+  strong gravity}},}\ }\href@noop {} {\  (\bibinfo {year} {2023})},\ \Eprint
+  {http://arxiv.org/abs/2309.06225} {arXiv:2309.06225 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Okounkova}\ \emph {et~al.}(2019)\citenamefont
+  {Okounkova}, \citenamefont {Stein}, \citenamefont {Scheel},\ and\
+  \citenamefont {Teukolsky}}]{Okounkova:2019dfo}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {M.}~\bibnamefont
+  {Okounkova}}, \bibinfo {author} {\bibfnamefont {L.~C.}\ \bibnamefont
+  {Stein}}, \bibinfo {author} {\bibfnamefont {M.~A.}\ \bibnamefont {Scheel}}, \
+  and\ \bibinfo {author} {\bibfnamefont {S.~A.}\ \bibnamefont {Teukolsky}},\
+  }\bibfield  {title} {\enquote {\bibinfo {title} {{Numerical binary black hole
+  collisions in dynamical Chern-Simons gravity}},}\ }\href {\doibase
+  10.1103/PhysRevD.100.104026} {\bibfield  {journal} {\bibinfo  {journal}
+  {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {100}},\ \bibinfo {pages}
+  {104026} (\bibinfo {year} {2019})},\ \Eprint
+  {http://arxiv.org/abs/1906.08789} {arXiv:1906.08789 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Kov\'acs}\ and\ \citenamefont
+  {Reall}(2020)}]{Kovacs:2020ywu}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {A.~D.}\ \bibnamefont
+  {Kov\'acs}}\ and\ \bibinfo {author} {\bibfnamefont {H.~S.}\ \bibnamefont
+  {Reall}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Well-posed
+  formulation of Lovelock and Horndeski theories}},}\ }\href {\doibase
+  10.1103/PhysRevD.101.124003} {\bibfield  {journal} {\bibinfo  {journal}
+  {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {101}},\ \bibinfo {pages}
+  {124003} (\bibinfo {year} {2020})},\ \Eprint
+  {http://arxiv.org/abs/2003.08398} {arXiv:2003.08398 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Cayuso}\ \emph {et~al.}(2023)\citenamefont {Cayuso},
+  \citenamefont {Figueras}, \citenamefont {Fran\c{c}a},\ and\ \citenamefont
+  {Lehner}}]{Cayuso:2023aht}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {R.}~\bibnamefont
+  {Cayuso}}, \bibinfo {author} {\bibfnamefont {P.}~\bibnamefont {Figueras}},
+  \bibinfo {author} {\bibfnamefont {T.}~\bibnamefont {Fran\c{c}a}}, \ and\
+  \bibinfo {author} {\bibfnamefont {L.}~\bibnamefont {Lehner}},\ }\bibfield
+  {title} {\enquote {\bibinfo {title} {{Modelling self-consistently beyond
+  General Relativity}},}\ }\href@noop {} {\  (\bibinfo {year} {2023})},\
+  \Eprint {http://arxiv.org/abs/2303.07246} {arXiv:2303.07246 [gr-qc]}
+  \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Regge}\ and\ \citenamefont
+  {Wheeler}(1957{\natexlab{a}})}]{Regge_Wheeler_gauge}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {T.}~\bibnamefont
+  {Regge}}\ and\ \bibinfo {author} {\bibfnamefont {J.~A.}\ \bibnamefont
+  {Wheeler}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Stability of a
+  Schwarzschild singularity}},}\ }\href {\doibase 10.1103/PhysRev.108.1063}
+  {\bibfield  {journal} {\bibinfo  {journal} {Phys. Rev.}\ }\textbf {\bibinfo
+  {volume} {108}},\ \bibinfo {pages} {1063--1069} (\bibinfo {year}
+  {1957}{\natexlab{a}})}\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Zerilli}(1970{\natexlab{a}})}]{Zerilli_even}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {F.~J.}\ \bibnamefont
+  {Zerilli}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Effective
+  potential for even parity Regge-Wheeler gravitational perturbation
+  equations}},}\ }\href {\doibase 10.1103/PhysRevLett.24.737} {\bibfield
+  {journal} {\bibinfo  {journal} {Phys. Rev. Lett.}\ }\textbf {\bibinfo
+  {volume} {24}},\ \bibinfo {pages} {737--738} (\bibinfo {year}
+  {1970}{\natexlab{a}})}\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Moncrief}(1974)}]{Moncrief:1974am}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {V.}~\bibnamefont
+  {Moncrief}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Gravitational
+  perturbations of spherically symmetric systems. I. The exterior problem.}}}\
+  }\href {\doibase 10.1016/0003-4916(74)90173-0} {\bibfield  {journal}
+  {\bibinfo  {journal} {Annals Phys.}\ }\textbf {\bibinfo {volume} {88}},\
+  \bibinfo {pages} {323--342} (\bibinfo {year} {1974})}\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Regge}\ and\ \citenamefont
+  {Wheeler}(1957{\natexlab{b}})}]{Regge:PhysRev.108.1063}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {T.}~\bibnamefont
+  {Regge}}\ and\ \bibinfo {author} {\bibfnamefont {J.~A.}\ \bibnamefont
+  {Wheeler}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {Stability of a
+  schwarzschild singularity},}\ }\href {\doibase 10.1103/PhysRev.108.1063}
+  {\bibfield  {journal} {\bibinfo  {journal} {Phys. Rev.}\ }\textbf {\bibinfo
+  {volume} {108}},\ \bibinfo {pages} {1063--1069} (\bibinfo {year}
+  {1957}{\natexlab{b}})}\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Zerilli}(1970{\natexlab{b}})}]{Zerilli:1971wd}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {F.~J.}\ \bibnamefont
+  {Zerilli}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Gravitational
+  field of a particle falling in a schwarzschild geometry analyzed in tensor
+  harmonics}},}\ }\href {\doibase 10.1103/PhysRevD.2.2141} {\bibfield
+  {journal} {\bibinfo  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo {volume}
+  {2}},\ \bibinfo {pages} {2141--2160} (\bibinfo {year}
+  {1970}{\natexlab{b}})}\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Molina}\ \emph {et~al.}(2010)\citenamefont {Molina},
+  \citenamefont {Pani}, \citenamefont {Cardoso},\ and\ \citenamefont
+  {Gualtieri}}]{Molina:2010fb}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {C.}~\bibnamefont
+  {Molina}}, \bibinfo {author} {\bibfnamefont {P.}~\bibnamefont {Pani}},
+  \bibinfo {author} {\bibfnamefont {V.}~\bibnamefont {Cardoso}}, \ and\
+  \bibinfo {author} {\bibfnamefont {L.}~\bibnamefont {Gualtieri}},\ }\bibfield
+  {title} {\enquote {\bibinfo {title} {{Gravitational signature of
+  Schwarzschild black holes in dynamical Chern-Simons gravity}},}\ }\href
+  {\doibase 10.1103/PhysRevD.81.124021} {\bibfield  {journal} {\bibinfo
+  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {81}},\ \bibinfo
+  {pages} {124021} (\bibinfo {year} {2010})},\ \Eprint
+  {http://arxiv.org/abs/1004.4007} {arXiv:1004.4007 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Cardoso}\ and\ \citenamefont
+  {Gualtieri}(2009{\natexlab{a}})}]{Cardoso:2009pk}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {V.}~\bibnamefont
+  {Cardoso}}\ and\ \bibinfo {author} {\bibfnamefont {L.}~\bibnamefont
+  {Gualtieri}},\ }\bibfield  {title} {\enquote {\bibinfo {title}
+  {{Perturbations of Schwarzschild black holes in Dynamical Chern-Simons
+  modified gravity}},}\ }\href {\doibase 10.1103/PhysRevD.81.089903} {\bibfield
+   {journal} {\bibinfo  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo {volume}
+  {80}},\ \bibinfo {pages} {064008} (\bibinfo {year} {2009}{\natexlab{a}})},\
+  \bibinfo {note} {[Erratum: Phys.Rev.D 81, 089903 (2010)]},\ \Eprint
+  {http://arxiv.org/abs/0907.5008} {arXiv:0907.5008 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Bl\'azquez-Salcedo}\ \emph
+  {et~al.}(2016)\citenamefont {Bl\'azquez-Salcedo}, \citenamefont {Macedo},
+  \citenamefont {Cardoso}, \citenamefont {Ferrari}, \citenamefont {Gualtieri},
+  \citenamefont {Khoo}, \citenamefont {Kunz},\ and\ \citenamefont
+  {Pani}}]{Blazquez-Salcedo:2016enn}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {J.~L.}\ \bibnamefont
+  {Bl\'azquez-Salcedo}}, \bibinfo {author} {\bibfnamefont {C.~F.~B.}\
+  \bibnamefont {Macedo}}, \bibinfo {author} {\bibfnamefont {V.}~\bibnamefont
+  {Cardoso}}, \bibinfo {author} {\bibfnamefont {V.}~\bibnamefont {Ferrari}},
+  \bibinfo {author} {\bibfnamefont {L.}~\bibnamefont {Gualtieri}}, \bibinfo
+  {author} {\bibfnamefont {F.~S.}\ \bibnamefont {Khoo}}, \bibinfo {author}
+  {\bibfnamefont {J.}~\bibnamefont {Kunz}}, \ and\ \bibinfo {author}
+  {\bibfnamefont {P.}~\bibnamefont {Pani}},\ }\bibfield  {title} {\enquote
+  {\bibinfo {title} {{Perturbed black holes in Einstein-dilaton-Gauss-Bonnet
+  gravity: Stability, ringdown, and gravitational-wave emission}},}\ }\href
+  {\doibase 10.1103/PhysRevD.94.104024} {\bibfield  {journal} {\bibinfo
+  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {94}},\ \bibinfo
+  {pages} {104024} (\bibinfo {year} {2016})},\ \Eprint
+  {http://arxiv.org/abs/1609.01286} {arXiv:1609.01286 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Wagle}\ \emph
+  {et~al.}(2022{\natexlab{a}})\citenamefont {Wagle}, \citenamefont {Yunes},\
+  and\ \citenamefont {Silva}}]{Wagle:2021tam}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {P.}~\bibnamefont
+  {Wagle}}, \bibinfo {author} {\bibfnamefont {N.}~\bibnamefont {Yunes}}, \ and\
+  \bibinfo {author} {\bibfnamefont {H.~O.}\ \bibnamefont {Silva}},\ }\bibfield
+  {title} {\enquote {\bibinfo {title} {{Quasinormal modes of slowly-rotating
+  black holes in dynamical Chern-Simons gravity}},}\ }\href {\doibase
+  10.1103/PhysRevD.105.124003} {\bibfield  {journal} {\bibinfo  {journal}
+  {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {105}},\ \bibinfo {pages}
+  {124003} (\bibinfo {year} {2022}{\natexlab{a}})},\ \Eprint
+  {http://arxiv.org/abs/2103.09913} {arXiv:2103.09913 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Pierini}\ and\ \citenamefont
+  {Gualtieri}(2021{\natexlab{a}})}]{Pierini:2021jxd}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {L.}~\bibnamefont
+  {Pierini}}\ and\ \bibinfo {author} {\bibfnamefont {L.}~\bibnamefont
+  {Gualtieri}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Quasi-normal
+  modes of rotating black holes in Einstein-dilaton Gauss-Bonnet gravity: the
+  first order in rotation}},}\ }\href {\doibase 10.1103/PhysRevD.103.124017}
+  {\bibfield  {journal} {\bibinfo  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo
+  {volume} {103}},\ \bibinfo {pages} {124017} (\bibinfo {year}
+  {2021}{\natexlab{a}})},\ \Eprint {http://arxiv.org/abs/2103.09870}
+  {arXiv:2103.09870 [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Pierini}\ and\ \citenamefont
+  {Gualtieri}(2022{\natexlab{a}})}]{Pierini:2022eim}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {L.}~\bibnamefont
+  {Pierini}}\ and\ \bibinfo {author} {\bibfnamefont {L.}~\bibnamefont
+  {Gualtieri}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Quasinormal
+  modes of rotating black holes in Einstein-dilaton Gauss-Bonnet gravity: The
+  second order in rotation}},}\ }\href {\doibase 10.1103/PhysRevD.106.104009}
+  {\bibfield  {journal} {\bibinfo  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo
+  {volume} {106}},\ \bibinfo {pages} {104009} (\bibinfo {year}
+  {2022}{\natexlab{a}})},\ \Eprint {http://arxiv.org/abs/2207.11267}
+  {arXiv:2207.11267 [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Cano}\ \emph {et~al.}(2020)\citenamefont {Cano},
+  \citenamefont {Fransen},\ and\ \citenamefont {Hertog}}]{Cano:2020cao}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {P.~A.}\ \bibnamefont
+  {Cano}}, \bibinfo {author} {\bibfnamefont {K.}~\bibnamefont {Fransen}}, \
+  and\ \bibinfo {author} {\bibfnamefont {T.}~\bibnamefont {Hertog}},\
+  }\bibfield  {title} {\enquote {\bibinfo {title} {{Ringing of rotating black
+  holes in higher-derivative gravity}},}\ }\href {\doibase
+  10.1103/PhysRevD.102.044047} {\bibfield  {journal} {\bibinfo  {journal}
+  {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {102}},\ \bibinfo {pages}
+  {044047} (\bibinfo {year} {2020})},\ \Eprint
+  {http://arxiv.org/abs/2005.03671} {arXiv:2005.03671 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {De~Felice}\ and\ \citenamefont
+  {Tsujikawa}(2023)}]{DeFelice:2023rra}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {A.}~\bibnamefont
+  {De~Felice}}\ and\ \bibinfo {author} {\bibfnamefont {S.}~\bibnamefont
+  {Tsujikawa}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Can we
+  distinguish black holes with electric and magnetic charges from quasinormal
+  modes?}}}\ }\href@noop {} {\  (\bibinfo {year} {2023})},\ \Eprint
+  {http://arxiv.org/abs/2312.03191} {arXiv:2312.03191 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Newman}\ and\ \citenamefont
+  {Penrose}(1962)}]{Newman:1961qr}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {E.}~\bibnamefont
+  {Newman}}\ and\ \bibinfo {author} {\bibfnamefont {R.}~\bibnamefont
+  {Penrose}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{An Approach to
+  gravitational radiation by a method of spin coefficients}},}\ }\href
+  {\doibase 10.1063/1.1724257} {\bibfield  {journal} {\bibinfo  {journal} {J.
+  Math. Phys.}\ }\textbf {\bibinfo {volume} {3}},\ \bibinfo {pages} {566--578}
+  (\bibinfo {year} {1962})}\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Teukolsky}(1973)}]{Teukolsky:1973ha}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {S.~A.}\ \bibnamefont
+  {Teukolsky}},\ }\bibfield  {title} {\enquote {\bibinfo {title}
+  {{Perturbations of a rotating black hole. 1. Fundamental equations for
+  gravitational electromagnetic and neutrino field perturbations}},}\ }\href
+  {\doibase 10.1086/152444} {\bibfield  {journal} {\bibinfo  {journal}
+  {Astrophys. J.}\ }\textbf {\bibinfo {volume} {185}},\ \bibinfo {pages}
+  {635--647} (\bibinfo {year} {1973})}\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Teukolsky}(1972)}]{Teukolsky_01_PRL}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {S.~A.}\ \bibnamefont
+  {Teukolsky}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Rotating
+  black holes - separable wave equations for gravitational and electromagnetic
+  perturbations}},}\ }\href {\doibase 10.1103/PhysRevLett.29.1114} {\bibfield
+  {journal} {\bibinfo  {journal} {Phys. Rev. Lett.}\ }\textbf {\bibinfo
+  {volume} {29}},\ \bibinfo {pages} {1114--1118} (\bibinfo {year}
+  {1972})}\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Press}\ and\ \citenamefont
+  {Teukolsky}(1973)}]{Press:1973zz}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {W.~H.}\ \bibnamefont
+  {Press}}\ and\ \bibinfo {author} {\bibfnamefont {S.~A.}\ \bibnamefont
+  {Teukolsky}},\ }\bibfield  {title} {\enquote {\bibinfo {title}
+  {{Perturbations of a Rotating Black Hole. II. Dynamical Stability of the Kerr
+  Metric}},}\ }\href {\doibase 10.1086/152445} {\bibfield  {journal} {\bibinfo
+  {journal} {Astrophys. J.}\ }\textbf {\bibinfo {volume} {185}},\ \bibinfo
+  {pages} {649--674} (\bibinfo {year} {1973})}\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Teukolsky}\ and\ \citenamefont
+  {Press}(1974)}]{Teukolsky:1974yv}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {S.~A.}\ \bibnamefont
+  {Teukolsky}}\ and\ \bibinfo {author} {\bibfnamefont {W.~H.}\ \bibnamefont
+  {Press}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Perturbations of
+  a rotating black hole. III - Interaction of the hole with gravitational and
+  electromagnet ic radiation}},}\ }\href {\doibase 10.1086/153180} {\bibfield
+  {journal} {\bibinfo  {journal} {Astrophys. J.}\ }\textbf {\bibinfo {volume}
+  {193}},\ \bibinfo {pages} {443--461} (\bibinfo {year} {1974})}\BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Li}\ \emph {et~al.}(2022)\citenamefont {Li},
+  \citenamefont {Wagle}, \citenamefont {Chen},\ and\ \citenamefont
+  {Yunes}}]{Li:2022pcy}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {D.}~\bibnamefont
+  {Li}}, \bibinfo {author} {\bibfnamefont {P.}~\bibnamefont {Wagle}}, \bibinfo
+  {author} {\bibfnamefont {Y.}~\bibnamefont {Chen}}, \ and\ \bibinfo {author}
+  {\bibfnamefont {N.}~\bibnamefont {Yunes}},\ }\bibfield  {title} {\enquote
+  {\bibinfo {title} {{Perturbations of spinning black holes beyond General
+  Relativity: Modified Teukolsky equation}},}\ }\href@noop {} {\  (\bibinfo
+  {year} {2022})},\ \Eprint {http://arxiv.org/abs/2206.10652} {arXiv:2206.10652
+  [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Hussain}\ and\ \citenamefont
+  {Zimmerman}(2022)}]{Hussain:2022ins}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {A.}~\bibnamefont
+  {Hussain}}\ and\ \bibinfo {author} {\bibfnamefont {A.}~\bibnamefont
+  {Zimmerman}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{An approach
+  to computing spectral shifts for black holes beyond Kerr}},}\ }\href@noop {}
+  {\  (\bibinfo {year} {2022})},\ \Eprint {http://arxiv.org/abs/2206.10653}
+  {arXiv:2206.10653 [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Cano}\ \emph
+  {et~al.}(2023{\natexlab{a}})\citenamefont {Cano}, \citenamefont {Fransen},
+  \citenamefont {Hertog},\ and\ \citenamefont {Maenaut}}]{Cano:2023jbk}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {P.~A.}\ \bibnamefont
+  {Cano}}, \bibinfo {author} {\bibfnamefont {K.}~\bibnamefont {Fransen}},
+  \bibinfo {author} {\bibfnamefont {T.}~\bibnamefont {Hertog}}, \ and\ \bibinfo
+  {author} {\bibfnamefont {S.}~\bibnamefont {Maenaut}},\ }\bibfield  {title}
+  {\enquote {\bibinfo {title} {{Quasinormal modes of rotating black holes in
+  higher-derivative gravity}},}\ }\href@noop {} {\  (\bibinfo {year}
+  {2023}{\natexlab{a}})},\ \Eprint {http://arxiv.org/abs/2307.07431}
+  {arXiv:2307.07431 [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Cano}\ \emph {et~al.}(2022)\citenamefont {Cano},
+  \citenamefont {Fransen}, \citenamefont {Hertog},\ and\ \citenamefont
+  {Maenaut}}]{Cano:2021myl}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {P.~A.}\ \bibnamefont
+  {Cano}}, \bibinfo {author} {\bibfnamefont {K.}~\bibnamefont {Fransen}},
+  \bibinfo {author} {\bibfnamefont {T.}~\bibnamefont {Hertog}}, \ and\ \bibinfo
+  {author} {\bibfnamefont {S.}~\bibnamefont {Maenaut}},\ }\bibfield  {title}
+  {\enquote {\bibinfo {title} {{Gravitational ringing of rotating black holes
+  in higher-derivative gravity}},}\ }\href {\doibase
+  10.1103/PhysRevD.105.024064} {\bibfield  {journal} {\bibinfo  {journal}
+  {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {105}},\ \bibinfo {pages}
+  {024064} (\bibinfo {year} {2022})},\ \Eprint
+  {http://arxiv.org/abs/2110.11378} {arXiv:2110.11378 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Cano}\ \emph
+  {et~al.}(2023{\natexlab{b}})\citenamefont {Cano}, \citenamefont {Fransen},
+  \citenamefont {Hertog},\ and\ \citenamefont {Maenaut}}]{Cano:2023tmv}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {P.~A.}\ \bibnamefont
+  {Cano}}, \bibinfo {author} {\bibfnamefont {K.}~\bibnamefont {Fransen}},
+  \bibinfo {author} {\bibfnamefont {T.}~\bibnamefont {Hertog}}, \ and\ \bibinfo
+  {author} {\bibfnamefont {S.}~\bibnamefont {Maenaut}},\ }\bibfield  {title}
+  {\enquote {\bibinfo {title} {{Universal Teukolsky equations and black hole
+  perturbations in higher-derivative gravity}},}\ }\href {\doibase
+  10.1103/PhysRevD.108.024040} {\bibfield  {journal} {\bibinfo  {journal}
+  {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {108}},\ \bibinfo {pages}
+  {024040} (\bibinfo {year} {2023}{\natexlab{b}})},\ \Eprint
+  {http://arxiv.org/abs/2304.02663} {arXiv:2304.02663 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Wagle}\ \emph {et~al.}(2023)\citenamefont {Wagle},
+  \citenamefont {Li}, \citenamefont {Chen},\ and\ \citenamefont
+  {Yunes}}]{Wagle:dcsslow}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {P.}~\bibnamefont
+  {Wagle}}, \bibinfo {author} {\bibfnamefont {D.}~\bibnamefont {Li}}, \bibinfo
+  {author} {\bibfnamefont {Y.}~\bibnamefont {Chen}}, \ and\ \bibinfo {author}
+  {\bibfnamefont {N.}~\bibnamefont {Yunes}},\ }\bibfield  {title} {\enquote
+  {\bibinfo {title} {{Perturbations of spinning black holes in dynamical
+  Chern-Simons gravity I. Slow rotation equations}},}\ }\href@noop {} {\
+  (\bibinfo {year} {2023})},\ \Eprint {http://arxiv.org/abs/2311.07706}
+  {arXiv:2311.07706 [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont
+  {Chrzanowski}(1975{\natexlab{a}})}]{Chrzanowski:1975wv}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {P.~L.}\ \bibnamefont
+  {Chrzanowski}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Vector
+  Potential and Metric Perturbations of a Rotating Black Hole}},}\ }\href
+  {\doibase 10.1103/PhysRevD.11.2042} {\bibfield  {journal} {\bibinfo
+  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {11}},\ \bibinfo
+  {pages} {2042--2062} (\bibinfo {year} {1975}{\natexlab{a}})}\BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Toomani}\ \emph {et~al.}(2022)\citenamefont
+  {Toomani}, \citenamefont {Zimmerman}, \citenamefont {Spiers}, \citenamefont
+  {Hollands}, \citenamefont {Pound},\ and\ \citenamefont
+  {Green}}]{Toomani:2021jlo}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {V.}~\bibnamefont
+  {Toomani}}, \bibinfo {author} {\bibfnamefont {P.}~\bibnamefont {Zimmerman}},
+  \bibinfo {author} {\bibfnamefont {A.}~\bibnamefont {Spiers}}, \bibinfo
+  {author} {\bibfnamefont {S.}~\bibnamefont {Hollands}}, \bibinfo {author}
+  {\bibfnamefont {A.}~\bibnamefont {Pound}}, \ and\ \bibinfo {author}
+  {\bibfnamefont {S.~R.}\ \bibnamefont {Green}},\ }\bibfield  {title} {\enquote
+  {\bibinfo {title} {{New metric reconstruction scheme for gravitational
+  self-force calculations}},}\ }\href {\doibase 10.1088/1361-6382/ac37a5}
+  {\bibfield  {journal} {\bibinfo  {journal} {Class. Quant. Grav.}\ }\textbf
+  {\bibinfo {volume} {39}},\ \bibinfo {pages} {015019} (\bibinfo {year}
+  {2022})},\ \Eprint {http://arxiv.org/abs/2108.04273} {arXiv:2108.04273
+  [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Whiting}\ and\ \citenamefont
+  {Price}(2005)}]{Whiting_Price_2005}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {B.~F.}\ \bibnamefont
+  {Whiting}}\ and\ \bibinfo {author} {\bibfnamefont {L.~R.}\ \bibnamefont
+  {Price}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {Metric
+  reconstruction from weyl scalars},}\ }\href {\doibase
+  10.1088/0264-9381/22/15/003} {\bibfield  {journal} {\bibinfo  {journal}
+  {Classical and Quantum Gravity}\ }\textbf {\bibinfo {volume} {22}},\ \bibinfo
+  {pages} {S589--S604} (\bibinfo {year} {2005})}\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Lousto}(2005)}]{Lousto:2005xu}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {C.~O.}\ \bibnamefont
+  {Lousto}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Reconstruction
+  of black hole metric perturbations from Weyl curvature. II. The Regge-Wheeler
+  gauge}},}\ }\href {\doibase 10.1088/0264-9381/22/15/002} {\bibfield
+  {journal} {\bibinfo  {journal} {Class. Quant. Grav.}\ }\textbf {\bibinfo
+  {volume} {22}},\ \bibinfo {pages} {S569--S588} (\bibinfo {year} {2005})},\
+  \Eprint {http://arxiv.org/abs/gr-qc/0501088} {arXiv:gr-qc/0501088}
+  \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Ripley}\ \emph {et~al.}(2021)\citenamefont {Ripley},
+  \citenamefont {Loutrel}, \citenamefont {Giorgi},\ and\ \citenamefont
+  {Pretorius}}]{Ripley:2020xby}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {J.~L.}\ \bibnamefont
+  {Ripley}}, \bibinfo {author} {\bibfnamefont {N.}~\bibnamefont {Loutrel}},
+  \bibinfo {author} {\bibfnamefont {E.}~\bibnamefont {Giorgi}}, \ and\ \bibinfo
+  {author} {\bibfnamefont {F.}~\bibnamefont {Pretorius}},\ }\bibfield  {title}
+  {\enquote {\bibinfo {title} {{Numerical computation of second order vacuum
+  perturbations of Kerr black holes}},}\ }\href {\doibase
+  10.1103/PhysRevD.103.104018} {\bibfield  {journal} {\bibinfo  {journal}
+  {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {103}},\ \bibinfo {pages}
+  {104018} (\bibinfo {year} {2021})},\ \Eprint
+  {http://arxiv.org/abs/2010.00162} {arXiv:2010.00162 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Ripley}(2022)}]{Ripley:2022ypi}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {J.~L.}\ \bibnamefont
+  {Ripley}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Computing the
+  quasinormal modes and eigenfunctions for the Teukolsky equation using horizon
+  penetrating, hyperboloidally compactified coordinates}},}\ }\href {\doibase
+  10.1088/1361-6382/ac776d} {\bibfield  {journal} {\bibinfo  {journal} {Class.
+  Quant. Grav.}\ }\textbf {\bibinfo {volume} {39}},\ \bibinfo {pages} {145009}
+  (\bibinfo {year} {2022})},\ \Eprint {http://arxiv.org/abs/2202.03837}
+  {arXiv:2202.03837 [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Jansen}(2017)}]{Jansen:2017oag}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {A.}~\bibnamefont
+  {Jansen}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Overdamped
+  modes in Schwarzschild-de Sitter and a Mathematica package for the numerical
+  computation of quasinormal modes}},}\ }\href {\doibase
+  10.1140/epjp/i2017-11825-9} {\bibfield  {journal} {\bibinfo  {journal} {Eur.
+  Phys. J. Plus}\ }\textbf {\bibinfo {volume} {132}},\ \bibinfo {pages} {546}
+  (\bibinfo {year} {2017})},\ \Eprint {http://arxiv.org/abs/1709.09178}
+  {arXiv:1709.09178 [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Eperon}\ \emph {et~al.}(2020)\citenamefont {Eperon},
+  \citenamefont {Ganchev},\ and\ \citenamefont {Santos}}]{Eperon:2019viw}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {F.~C.}\ \bibnamefont
+  {Eperon}}, \bibinfo {author} {\bibfnamefont {B.}~\bibnamefont {Ganchev}}, \
+  and\ \bibinfo {author} {\bibfnamefont {J.~E.}\ \bibnamefont {Santos}},\
+  }\bibfield  {title} {\enquote {\bibinfo {title} {{Plausible scenario for a
+  generic violation of the weak cosmic censorship conjecture in asymptotically
+  flat four dimensions}},}\ }\href {\doibase 10.1103/PhysRevD.101.041502}
+  {\bibfield  {journal} {\bibinfo  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo
+  {volume} {101}},\ \bibinfo {pages} {041502} (\bibinfo {year} {2020})},\
+  \Eprint {http://arxiv.org/abs/1906.11257} {arXiv:1906.11257 [gr-qc]}
+  \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Dias}\ \emph {et~al.}(2019)\citenamefont {Dias},
+  \citenamefont {Reall},\ and\ \citenamefont {Santos}}]{Dias:2018ufh}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {O.~J.~C.}\
+  \bibnamefont {Dias}}, \bibinfo {author} {\bibfnamefont {H.~S.}\ \bibnamefont
+  {Reall}}, \ and\ \bibinfo {author} {\bibfnamefont {J.~E.}\ \bibnamefont
+  {Santos}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Strong cosmic
+  censorship for charged de Sitter black holes with a charged scalar field}},}\
+  }\href {\doibase 10.1088/1361-6382/aafcf2} {\bibfield  {journal} {\bibinfo
+  {journal} {Class. Quant. Grav.}\ }\textbf {\bibinfo {volume} {36}},\ \bibinfo
+  {pages} {045005} (\bibinfo {year} {2019})},\ \Eprint
+  {http://arxiv.org/abs/1808.04832} {arXiv:1808.04832 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Cardoso}\ \emph
+  {et~al.}(2014{\natexlab{a}})\citenamefont {Cardoso}, \citenamefont {Dias},
+  \citenamefont {Hartnett}, \citenamefont {Lehner},\ and\ \citenamefont
+  {Santos}}]{Cardoso:2013pza}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {V.}~\bibnamefont
+  {Cardoso}}, \bibinfo {author} {\bibfnamefont {O.~J.~C.}\ \bibnamefont
+  {Dias}}, \bibinfo {author} {\bibfnamefont {G.~S.}\ \bibnamefont {Hartnett}},
+  \bibinfo {author} {\bibfnamefont {L.}~\bibnamefont {Lehner}}, \ and\ \bibinfo
+  {author} {\bibfnamefont {J.~E.}\ \bibnamefont {Santos}},\ }\bibfield  {title}
+  {\enquote {\bibinfo {title} {{Holographic thermalization, quasinormal modes
+  and superradiance in Kerr-AdS}},}\ }\href {\doibase 10.1007/JHEP04(2014)183}
+  {\bibfield  {journal} {\bibinfo  {journal} {JHEP}\ }\textbf {\bibinfo
+  {volume} {04}},\ \bibinfo {pages} {183} (\bibinfo {year}
+  {2014}{\natexlab{a}})},\ \Eprint {http://arxiv.org/abs/1312.5323}
+  {arXiv:1312.5323 [hep-th]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Dias}\ \emph {et~al.}(2015)\citenamefont {Dias},
+  \citenamefont {Godazgar},\ and\ \citenamefont {Santos}}]{Dias:2015wqa}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {O.~J.~C.}\
+  \bibnamefont {Dias}}, \bibinfo {author} {\bibfnamefont {M.}~\bibnamefont
+  {Godazgar}}, \ and\ \bibinfo {author} {\bibfnamefont {J.~E.}\ \bibnamefont
+  {Santos}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Linear Mode
+  Stability of the Kerr-Newman Black Hole and Its Quasinormal Modes}},}\ }\href
+  {\doibase 10.1103/PhysRevLett.114.151101} {\bibfield  {journal} {\bibinfo
+  {journal} {Phys. Rev. Lett.}\ }\textbf {\bibinfo {volume} {114}},\ \bibinfo
+  {pages} {151101} (\bibinfo {year} {2015})},\ \Eprint
+  {http://arxiv.org/abs/1501.04625} {arXiv:1501.04625 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Dias}\ \emph
+  {et~al.}(2022{\natexlab{a}})\citenamefont {Dias}, \citenamefont {Godazgar},
+  \citenamefont {Santos}, \citenamefont {Carullo}, \citenamefont {Del~Pozzo},\
+  and\ \citenamefont {Laghi}}]{Dias:2021yju}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {O.~J.~C.}\
+  \bibnamefont {Dias}}, \bibinfo {author} {\bibfnamefont {M.}~\bibnamefont
+  {Godazgar}}, \bibinfo {author} {\bibfnamefont {J.~E.}\ \bibnamefont
+  {Santos}}, \bibinfo {author} {\bibfnamefont {G.}~\bibnamefont {Carullo}},
+  \bibinfo {author} {\bibfnamefont {W.}~\bibnamefont {Del~Pozzo}}, \ and\
+  \bibinfo {author} {\bibfnamefont {D.}~\bibnamefont {Laghi}},\ }\bibfield
+  {title} {\enquote {\bibinfo {title} {{Eigenvalue repulsions in the
+  quasinormal spectra of the Kerr-Newman black hole}},}\ }\href {\doibase
+  10.1103/PhysRevD.105.084044} {\bibfield  {journal} {\bibinfo  {journal}
+  {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {105}},\ \bibinfo {pages}
+  {084044} (\bibinfo {year} {2022}{\natexlab{a}})},\ \Eprint
+  {http://arxiv.org/abs/2109.13949} {arXiv:2109.13949 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Dias}\ \emph
+  {et~al.}(2022{\natexlab{b}})\citenamefont {Dias}, \citenamefont {Godazgar},\
+  and\ \citenamefont {Santos}}]{Dias:2022oqm}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {O.~J.~C.}\
+  \bibnamefont {Dias}}, \bibinfo {author} {\bibfnamefont {M.}~\bibnamefont
+  {Godazgar}}, \ and\ \bibinfo {author} {\bibfnamefont {J.~E.}\ \bibnamefont
+  {Santos}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Eigenvalue
+  repulsions and quasinormal mode spectra of Kerr-Newman: an extended
+  study}},}\ }\href {\doibase 10.1007/JHEP07(2022)076} {\bibfield  {journal}
+  {\bibinfo  {journal} {JHEP}\ }\textbf {\bibinfo {volume} {07}},\ \bibinfo
+  {pages} {076} (\bibinfo {year} {2022}{\natexlab{b}})},\ \Eprint
+  {http://arxiv.org/abs/2205.13072} {arXiv:2205.13072 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Langlois}\ \emph
+  {et~al.}(2021{\natexlab{a}})\citenamefont {Langlois}, \citenamefont {Noui},\
+  and\ \citenamefont {Roussille}}]{Langlois:2021aji}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {D.}~\bibnamefont
+  {Langlois}}, \bibinfo {author} {\bibfnamefont {K.}~\bibnamefont {Noui}}, \
+  and\ \bibinfo {author} {\bibfnamefont {H.}~\bibnamefont {Roussille}},\
+  }\bibfield  {title} {\enquote {\bibinfo {title} {{Black hole perturbations in
+  modified gravity}},}\ }\href {\doibase 10.1103/PhysRevD.104.124044}
+  {\bibfield  {journal} {\bibinfo  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo
+  {volume} {104}},\ \bibinfo {pages} {124044} (\bibinfo {year}
+  {2021}{\natexlab{a}})},\ \Eprint {http://arxiv.org/abs/2103.14750}
+  {arXiv:2103.14750 [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Langlois}\ \emph
+  {et~al.}(2021{\natexlab{b}})\citenamefont {Langlois}, \citenamefont {Noui},\
+  and\ \citenamefont {Roussille}}]{Langlois:2021xzq}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {D.}~\bibnamefont
+  {Langlois}}, \bibinfo {author} {\bibfnamefont {K.}~\bibnamefont {Noui}}, \
+  and\ \bibinfo {author} {\bibfnamefont {H.}~\bibnamefont {Roussille}},\
+  }\bibfield  {title} {\enquote {\bibinfo {title} {{Asymptotics of linear
+  differential systems and application to quasinormal modes of nonrotating
+  black holes}},}\ }\href {\doibase 10.1103/PhysRevD.104.124043} {\bibfield
+  {journal} {\bibinfo  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo {volume}
+  {104}},\ \bibinfo {pages} {124043} (\bibinfo {year} {2021}{\natexlab{b}})},\
+  \Eprint {http://arxiv.org/abs/2103.14744} {arXiv:2103.14744 [gr-qc]}
+  \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Dias}\ \emph {et~al.}(2014)\citenamefont {Dias},
+  \citenamefont {Hartnett},\ and\ \citenamefont {Santos}}]{Dias:2014eua}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {O.~J.~C.}\
+  \bibnamefont {Dias}}, \bibinfo {author} {\bibfnamefont {G.~S.}\ \bibnamefont
+  {Hartnett}}, \ and\ \bibinfo {author} {\bibfnamefont {J.~E.}\ \bibnamefont
+  {Santos}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Quasinormal
+  modes of asymptotically flat rotating black holes}},}\ }\href {\doibase
+  10.1088/0264-9381/31/24/245011} {\bibfield  {journal} {\bibinfo  {journal}
+  {Class. Quant. Grav.}\ }\textbf {\bibinfo {volume} {31}},\ \bibinfo {pages}
+  {245011} (\bibinfo {year} {2014})},\ \Eprint {http://arxiv.org/abs/1402.7047}
+  {arXiv:1402.7047 [hep-th]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Monteiro}\ \emph
+  {et~al.}(2010{\natexlab{a}})\citenamefont {Monteiro}, \citenamefont {Perry},\
+  and\ \citenamefont {Santos}}]{Spectral_03}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {R.}~\bibnamefont
+  {Monteiro}}, \bibinfo {author} {\bibfnamefont {M.~J.}\ \bibnamefont {Perry}},
+  \ and\ \bibinfo {author} {\bibfnamefont {J.~E.}\ \bibnamefont {Santos}},\
+  }\bibfield  {title} {\enquote {\bibinfo {title} {{Semiclassical instabilities
+  of Kerr-AdS black holes}},}\ }\href {\doibase 10.1103/PhysRevD.81.024001}
+  {\bibfield  {journal} {\bibinfo  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo
+  {volume} {81}},\ \bibinfo {pages} {024001} (\bibinfo {year}
+  {2010}{\natexlab{a}})},\ \Eprint {http://arxiv.org/abs/0905.2334}
+  {arXiv:0905.2334 [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Dias}\ \emph
+  {et~al.}(2009{\natexlab{a}})\citenamefont {Dias}, \citenamefont {Figueras},
+  \citenamefont {Monteiro}, \citenamefont {Santos},\ and\ \citenamefont
+  {Emparan}}]{Spectral_04}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {O.~J.~C.}\
+  \bibnamefont {Dias}}, \bibinfo {author} {\bibfnamefont {P.}~\bibnamefont
+  {Figueras}}, \bibinfo {author} {\bibfnamefont {R.}~\bibnamefont {Monteiro}},
+  \bibinfo {author} {\bibfnamefont {J.~E.}\ \bibnamefont {Santos}}, \ and\
+  \bibinfo {author} {\bibfnamefont {R.}~\bibnamefont {Emparan}},\ }\bibfield
+  {title} {\enquote {\bibinfo {title} {{Instability and new phases of
+  higher-dimensional rotating black holes}},}\ }\href {\doibase
+  10.1103/PhysRevD.80.111701} {\bibfield  {journal} {\bibinfo  {journal} {Phys.
+  Rev. D}\ }\textbf {\bibinfo {volume} {80}},\ \bibinfo {pages} {111701}
+  (\bibinfo {year} {2009}{\natexlab{a}})},\ \Eprint
+  {http://arxiv.org/abs/0907.2248} {arXiv:0907.2248 [hep-th]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Dias}\ \emph
+  {et~al.}(2010{\natexlab{a}})\citenamefont {Dias}, \citenamefont {Figueras},
+  \citenamefont {Monteiro}, \citenamefont {Reall},\ and\ \citenamefont
+  {Santos}}]{Spectral_05}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {O.~J.~C.}\
+  \bibnamefont {Dias}}, \bibinfo {author} {\bibfnamefont {P.}~\bibnamefont
+  {Figueras}}, \bibinfo {author} {\bibfnamefont {R.}~\bibnamefont {Monteiro}},
+  \bibinfo {author} {\bibfnamefont {H.~S.}\ \bibnamefont {Reall}}, \ and\
+  \bibinfo {author} {\bibfnamefont {J.~E.}\ \bibnamefont {Santos}},\ }\bibfield
+   {title} {\enquote {\bibinfo {title} {{An instability of higher-dimensional
+  rotating black holes}},}\ }\href {\doibase 10.1007/JHEP05(2010)076}
+  {\bibfield  {journal} {\bibinfo  {journal} {JHEP}\ }\textbf {\bibinfo
+  {volume} {05}},\ \bibinfo {pages} {076} (\bibinfo {year}
+  {2010}{\natexlab{a}})},\ \Eprint {http://arxiv.org/abs/1001.4527}
+  {arXiv:1001.4527 [hep-th]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Santos}\ and\ \citenamefont
+  {Way}(2015)}]{Santos:2015iua}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {J.~E.}\ \bibnamefont
+  {Santos}}\ and\ \bibinfo {author} {\bibfnamefont {B.}~\bibnamefont {Way}},\
+  }\bibfield  {title} {\enquote {\bibinfo {title} {{Neutral Black Rings in Five
+  Dimensions are Unstable}},}\ }\href {\doibase 10.1103/PhysRevLett.114.221101}
+  {\bibfield  {journal} {\bibinfo  {journal} {Phys. Rev. Lett.}\ }\textbf
+  {\bibinfo {volume} {114}},\ \bibinfo {pages} {221101} (\bibinfo {year}
+  {2015})},\ \Eprint {http://arxiv.org/abs/1503.00721} {arXiv:1503.00721
+  [hep-th]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Maselli}\ \emph {et~al.}(2023)\citenamefont
+  {Maselli}, \citenamefont {Yi}, \citenamefont {Pierini}, \citenamefont
+  {Vellucci}, \citenamefont {Reali}, \citenamefont {Gualtieri},\ and\
+  \citenamefont {Berti}}]{Maselli:2023khq}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {A.}~\bibnamefont
+  {Maselli}}, \bibinfo {author} {\bibfnamefont {S.}~\bibnamefont {Yi}},
+  \bibinfo {author} {\bibfnamefont {L.}~\bibnamefont {Pierini}}, \bibinfo
+  {author} {\bibfnamefont {V.}~\bibnamefont {Vellucci}}, \bibinfo {author}
+  {\bibfnamefont {L.}~\bibnamefont {Reali}}, \bibinfo {author} {\bibfnamefont
+  {L.}~\bibnamefont {Gualtieri}}, \ and\ \bibinfo {author} {\bibfnamefont
+  {E.}~\bibnamefont {Berti}},\ }\bibfield  {title} {\enquote {\bibinfo {title}
+  {{Black hole spectroscopy beyond Kerr: agnostic and theory-based tests with
+  next-generation interferometers}},}\ }\href@noop {} {\  (\bibinfo {year}
+  {2023})},\ \Eprint {http://arxiv.org/abs/2311.14803} {arXiv:2311.14803
+  [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Teukolsky}(2015)}]{Teukolsky:2014vca}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {S.~A.}\ \bibnamefont
+  {Teukolsky}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{The Kerr
+  Metric}},}\ }\href {\doibase 10.1088/0264-9381/32/12/124006} {\bibfield
+  {journal} {\bibinfo  {journal} {Class. Quant. Grav.}\ }\textbf {\bibinfo
+  {volume} {32}},\ \bibinfo {pages} {124006} (\bibinfo {year} {2015})},\
+  \Eprint {http://arxiv.org/abs/1410.2130} {arXiv:1410.2130 [gr-qc]}
+  \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {{Berti}}(2016)}]{Berti_02}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {E.}~\bibnamefont
+  {{Berti}}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Black hole
+  perturbation therory: lectures notes of ICTS Summer School}},}\ }\href@noop
+  {} {\  (\bibinfo {year} {2016})}\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Li}\ \emph {et~al.}(2023)\citenamefont {Li},
+  \citenamefont {Hussain}, \citenamefont {Wagle}, \citenamefont {Chen},
+  \citenamefont {Yunes},\ and\ \citenamefont
+  {Zimmerman}}]{isospectrality-paper}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {D.}~\bibnamefont
+  {Li}}, \bibinfo {author} {\bibfnamefont {A.}~\bibnamefont {Hussain}},
+  \bibinfo {author} {\bibfnamefont {P.}~\bibnamefont {Wagle}}, \bibinfo
+  {author} {\bibfnamefont {Y.}~\bibnamefont {Chen}}, \bibinfo {author}
+  {\bibfnamefont {N.}~\bibnamefont {Yunes}}, \ and\ \bibinfo {author}
+  {\bibfnamefont {A.}~\bibnamefont {Zimmerman}},\ }\bibfield  {title} {\enquote
+  {\bibinfo {title} {{Isospectrality breaking in the Teukolsky formalism}},}\
+  }\href@noop {} {\  (\bibinfo {year} {2023})},\ \Eprint
+  {http://arxiv.org/abs/2310.06033} {arXiv:2310.06033 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Dias}\ \emph
+  {et~al.}(2010{\natexlab{b}})\citenamefont {Dias}, \citenamefont {Figueras},
+  \citenamefont {Monteiro}, \citenamefont {Reall},\ and\ \citenamefont
+  {Santos}}]{Dias:2010eu}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {O.~J.~C.}\
+  \bibnamefont {Dias}}, \bibinfo {author} {\bibfnamefont {P.}~\bibnamefont
+  {Figueras}}, \bibinfo {author} {\bibfnamefont {R.}~\bibnamefont {Monteiro}},
+  \bibinfo {author} {\bibfnamefont {H.~S.}\ \bibnamefont {Reall}}, \ and\
+  \bibinfo {author} {\bibfnamefont {J.~E.}\ \bibnamefont {Santos}},\ }\bibfield
+   {title} {\enquote {\bibinfo {title} {{An instability of higher-dimensional
+  rotating black holes}},}\ }\href {\doibase 10.1007/JHEP05(2010)076}
+  {\bibfield  {journal} {\bibinfo  {journal} {JHEP}\ }\textbf {\bibinfo
+  {volume} {05}},\ \bibinfo {pages} {076} (\bibinfo {year}
+  {2010}{\natexlab{b}})},\ \Eprint {http://arxiv.org/abs/1001.4527}
+  {arXiv:1001.4527 [hep-th]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Poisson}(2009)}]{Poisson:2009pwt}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {E.}~\bibnamefont
+  {Poisson}},\ }\href {\doibase 10.1017/CBO9780511606601} {\emph {\bibinfo
+  {title} {{A Relativist's Toolkit: The Mathematics of Black-Hole
+  Mechanics}}}}\ (\bibinfo  {publisher} {Cambridge University Press},\ \bibinfo
+  {year} {2009})\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Owen}\ \emph {et~al.}(2021)\citenamefont {Owen},
+  \citenamefont {Yunes},\ and\ \citenamefont {Witek}}]{Owen:2021eez}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {C.~B.}\ \bibnamefont
+  {Owen}}, \bibinfo {author} {\bibfnamefont {N.}~\bibnamefont {Yunes}}, \ and\
+  \bibinfo {author} {\bibfnamefont {H.}~\bibnamefont {Witek}},\ }\bibfield
+  {title} {\enquote {\bibinfo {title} {{Petrov type, principal null directions,
+  and Killing tensors of slowly rotating black holes in quadratic gravity}},}\
+  }\href {\doibase 10.1103/PhysRevD.103.124057} {\bibfield  {journal} {\bibinfo
+   {journal} {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {103}},\ \bibinfo
+  {pages} {124057} (\bibinfo {year} {2021})},\ \Eprint
+  {http://arxiv.org/abs/2103.15891} {arXiv:2103.15891 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Sullivan}\ \emph {et~al.}(2020)\citenamefont
+  {Sullivan}, \citenamefont {Yunes},\ and\ \citenamefont
+  {Sotiriou}}]{Sullivan:2019vyi}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {A.}~\bibnamefont
+  {Sullivan}}, \bibinfo {author} {\bibfnamefont {N.}~\bibnamefont {Yunes}}, \
+  and\ \bibinfo {author} {\bibfnamefont {T.~P.}\ \bibnamefont {Sotiriou}},\
+  }\bibfield  {title} {\enquote {\bibinfo {title} {{Numerical black hole
+  solutions in modified gravity theories: Spherical symmetry case}},}\ }\href
+  {\doibase 10.1103/PhysRevD.101.044024} {\bibfield  {journal} {\bibinfo
+  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {101}},\ \bibinfo
+  {pages} {044024} (\bibinfo {year} {2020})},\ \Eprint
+  {http://arxiv.org/abs/1903.02624} {arXiv:1903.02624 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Sullivan}\ \emph {et~al.}(2021)\citenamefont
+  {Sullivan}, \citenamefont {Yunes},\ and\ \citenamefont
+  {Sotiriou}}]{Sullivan:2020zpf}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {A.}~\bibnamefont
+  {Sullivan}}, \bibinfo {author} {\bibfnamefont {N.}~\bibnamefont {Yunes}}, \
+  and\ \bibinfo {author} {\bibfnamefont {T.~P.}\ \bibnamefont {Sotiriou}},\
+  }\bibfield  {title} {\enquote {\bibinfo {title} {{Numerical black hole
+  solutions in modified gravity theories: Axial symmetry case}},}\ }\href
+  {\doibase 10.1103/PhysRevD.103.124058} {\bibfield  {journal} {\bibinfo
+  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {103}},\ \bibinfo
+  {pages} {124058} (\bibinfo {year} {2021})},\ \Eprint
+  {http://arxiv.org/abs/2009.10614} {arXiv:2009.10614 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Maselli}\ \emph {et~al.}(2015)\citenamefont
+  {Maselli}, \citenamefont {Pani}, \citenamefont {Gualtieri},\ and\
+  \citenamefont {Ferrari}}]{Maselli:2015tta}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {A.}~\bibnamefont
+  {Maselli}}, \bibinfo {author} {\bibfnamefont {P.}~\bibnamefont {Pani}},
+  \bibinfo {author} {\bibfnamefont {L.}~\bibnamefont {Gualtieri}}, \ and\
+  \bibinfo {author} {\bibfnamefont {V.}~\bibnamefont {Ferrari}},\ }\bibfield
+  {title} {\enquote {\bibinfo {title} {{Rotating black holes in
+  Einstein-Dilaton-Gauss-Bonnet gravity with finite coupling}},}\ }\href
+  {\doibase 10.1103/PhysRevD.92.083014} {\bibfield  {journal} {\bibinfo
+  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {92}},\ \bibinfo
+  {pages} {083014} (\bibinfo {year} {2015})},\ \Eprint
+  {http://arxiv.org/abs/1507.00680} {arXiv:1507.00680 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {O'Leary}\ and\ \citenamefont {Rust}(2013)}]{varpro}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {D.~P.}\ \bibnamefont
+  {O'Leary}}\ and\ \bibinfo {author} {\bibfnamefont {B.~W.}\ \bibnamefont
+  {Rust}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {Variable
+  projection for nonlinear least squares problems},}\ }\href {\doibase
+  10.1007/s10589-012-9492-9} {\bibfield  {journal} {\bibinfo  {journal}
+  {Comput. Optim. Appl.}\ }\textbf {\bibinfo {volume} {54}},\ \bibinfo {pages}
+  {579–593} (\bibinfo {year} {2013})}\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Dias}\ \emph {et~al.}(2016)\citenamefont {Dias},
+  \citenamefont {Santos},\ and\ \citenamefont {Way}}]{Dias:2015nua}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {O.~J.~C.}\
+  \bibnamefont {Dias}}, \bibinfo {author} {\bibfnamefont {J.~E.}\ \bibnamefont
+  {Santos}}, \ and\ \bibinfo {author} {\bibfnamefont {B.}~\bibnamefont {Way}},\
+  }\bibfield  {title} {\enquote {\bibinfo {title} {{Numerical Methods for
+  Finding Stationary Gravitational Solutions}},}\ }\href {\doibase
+  10.1088/0264-9381/33/13/133001} {\bibfield  {journal} {\bibinfo  {journal}
+  {Class. Quant. Grav.}\ }\textbf {\bibinfo {volume} {33}},\ \bibinfo {pages}
+  {133001} (\bibinfo {year} {2016})},\ \Eprint
+  {http://arxiv.org/abs/1510.02804} {arXiv:1510.02804 [hep-th]} \BibitemShut
+  {NoStop}%
+\bibitem [{Pra()}]{PratikRingdown}%
+  \BibitemOpen
+  \href@noop {} {}\bibinfo {note}
+  {\url{https://github.com/pratikwagle/Quasinormal-modes-of-slowly-rotating-black-holes-in-dynamical-Chern-Simons-gravity.git}}\BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Carullo}\ \emph
+  {et~al.}(2019{\natexlab{a}})\citenamefont {Carullo}, \citenamefont
+  {Riemenschneider}, \citenamefont {Tsang}, \citenamefont {Nagar},\ and\
+  \citenamefont {Del~Pozzo}}]{pyRing_02}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {G.}~\bibnamefont
+  {Carullo}}, \bibinfo {author} {\bibfnamefont {G.}~\bibnamefont
+  {Riemenschneider}}, \bibinfo {author} {\bibfnamefont {K.~W.}\ \bibnamefont
+  {Tsang}}, \bibinfo {author} {\bibfnamefont {A.}~\bibnamefont {Nagar}}, \ and\
+  \bibinfo {author} {\bibfnamefont {W.}~\bibnamefont {Del~Pozzo}},\ }\bibfield
+  {title} {\enquote {\bibinfo {title} {{GW150914 peak frequency: a novel
+  consistency test of strong-field General Relativity}},}\ }\href {\doibase
+  10.1088/1361-6382/ab185e} {\bibfield  {journal} {\bibinfo  {journal} {Class.
+  Quant. Grav.}\ }\textbf {\bibinfo {volume} {36}},\ \bibinfo {pages} {105009}
+  (\bibinfo {year} {2019}{\natexlab{a}})},\ \Eprint
+  {http://arxiv.org/abs/1811.08744} {arXiv:1811.08744 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Carullo}\ \emph
+  {et~al.}(2019{\natexlab{b}})\citenamefont {Carullo}, \citenamefont
+  {Del~Pozzo},\ and\ \citenamefont {Veitch}}]{pyRing_03}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {G.}~\bibnamefont
+  {Carullo}}, \bibinfo {author} {\bibfnamefont {W.}~\bibnamefont {Del~Pozzo}},
+  \ and\ \bibinfo {author} {\bibfnamefont {J.}~\bibnamefont {Veitch}},\
+  }\bibfield  {title} {\enquote {\bibinfo {title} {{Observational Black Hole
+  Spectroscopy: A time-domain multimode analysis of GW150914}},}\ }\href
+  {\doibase 10.1103/PhysRevD.99.123029} {\bibfield  {journal} {\bibinfo
+  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {99}},\ \bibinfo
+  {pages} {123029} (\bibinfo {year} {2019}{\natexlab{b}})},\ \bibinfo {note}
+  {[Erratum: Phys.Rev.D 100, 089903 (2019)]},\ \Eprint
+  {http://arxiv.org/abs/1902.07527} {arXiv:1902.07527 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Boyd}(2013)}]{boyd2013chebyshev}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {J.}~\bibnamefont
+  {Boyd}},\ }\href {https://books.google.com/books?id=b4TCAgAAQBAJ} {\emph
+  {\bibinfo {title} {Chebyshev and Fourier Spectral Methods: Second Revised
+  Edition}}},\ Dover Books on Mathematics\ (\bibinfo  {publisher} {Dover
+  Publications},\ \bibinfo {year} {2013})\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Leaver}(1985)}]{Leaver:1985ax}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {E.~W.}\ \bibnamefont
+  {Leaver}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{An analytic
+  representation for the quasi normal modes of Kerr black holes}},}\ }\href
+  {\doibase 10.1098/rspa.1985.0119} {\bibfield  {journal} {\bibinfo  {journal}
+  {Proc. Roy. Soc. Lond. A}\ }\textbf {\bibinfo {volume} {402}},\ \bibinfo
+  {pages} {285--298} (\bibinfo {year} {1985})}\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Abbott}\ \emph
+  {et~al.}(2016{\natexlab{e}})\citenamefont {Abbott} \emph
+  {et~al.}}]{LIGOScientific:2016vlm}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {B.~P.}\ \bibnamefont
+  {Abbott}} \emph {et~al.} (\bibinfo {collaboration} {LIGO Scientific,
+  Virgo}),\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Properties of the
+  Binary Black Hole Merger GW150914}},}\ }\href {\doibase
+  10.1103/PhysRevLett.116.241102} {\bibfield  {journal} {\bibinfo  {journal}
+  {Phys. Rev. Lett.}\ }\textbf {\bibinfo {volume} {116}},\ \bibinfo {pages}
+  {241102} (\bibinfo {year} {2016}{\natexlab{e}})},\ \Eprint
+  {http://arxiv.org/abs/1602.03840} {arXiv:1602.03840 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Kegeles}\ and\ \citenamefont
+  {Cohen}(1979)}]{Kegeles_Cohen_1979}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {L.~S.}\ \bibnamefont
+  {Kegeles}}\ and\ \bibinfo {author} {\bibfnamefont {J.~M.}\ \bibnamefont
+  {Cohen}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {Constructive
+  procedure for perturbations of spacetimes},}\ }\href {\doibase
+  10.1103/PhysRevD.19.1641} {\bibfield  {journal} {\bibinfo  {journal}
+  {Physical Review D}\ }\textbf {\bibinfo {volume} {19}},\ \bibinfo {pages}
+  {1641--1664} (\bibinfo {year} {1979})}\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Chrzanowski}(1975{\natexlab{b}})}]{PhysRevD.11.2042}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {P.~L.}\ \bibnamefont
+  {Chrzanowski}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {Vector
+  potential and metric perturbations of a rotating black hole},}\ }\href
+  {\doibase 10.1103/PhysRevD.11.2042} {\bibfield  {journal} {\bibinfo
+  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {11}},\ \bibinfo
+  {pages} {2042--2062} (\bibinfo {year} {1975}{\natexlab{b}})}\BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Loutrel}\ \emph {et~al.}(2021)\citenamefont
+  {Loutrel}, \citenamefont {Ripley}, \citenamefont {Giorgi},\ and\
+  \citenamefont {Pretorius}}]{Loutrel_Ripley_Giorgi_Pretorius_2020}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {N.}~\bibnamefont
+  {Loutrel}}, \bibinfo {author} {\bibfnamefont {J.~L.}\ \bibnamefont {Ripley}},
+  \bibinfo {author} {\bibfnamefont {E.}~\bibnamefont {Giorgi}}, \ and\ \bibinfo
+  {author} {\bibfnamefont {F.}~\bibnamefont {Pretorius}},\ }\bibfield  {title}
+  {\enquote {\bibinfo {title} {Second-order perturbations of kerr black holes:
+  Formalism and reconstruction of the first-order metric},}\ }\href {\doibase
+  10.1103/PhysRevD.103.104017} {\bibfield  {journal} {\bibinfo  {journal}
+  {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {103}},\ \bibinfo {pages}
+  {104017} (\bibinfo {year} {2021})}\BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Li}\ \emph {et~al.}()\citenamefont {Li},
+  \citenamefont {Wagle}, \citenamefont {Chen},\ and\ \citenamefont
+  {Yunes}}]{Li:Preparation}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {D.}~\bibnamefont
+  {Li}}, \bibinfo {author} {\bibfnamefont {P.}~\bibnamefont {Wagle}}, \bibinfo
+  {author} {\bibfnamefont {Y.}~\bibnamefont {Chen}}, \ and\ \bibinfo {author}
+  {\bibfnamefont {N.}~\bibnamefont {Yunes}},\ }\bibfield  {title} {\enquote
+  {\bibinfo {title} {{in preparation}},}\ }\href@noop {} {\ }\BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Srivastava}\ \emph {et~al.}(2021)\citenamefont
+  {Srivastava}, \citenamefont {Chen},\ and\ \citenamefont
+  {Shankaranarayanan}}]{QNM_dCS_02}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {M.}~\bibnamefont
+  {Srivastava}}, \bibinfo {author} {\bibfnamefont {Y.}~\bibnamefont {Chen}}, \
+  and\ \bibinfo {author} {\bibfnamefont {S.}~\bibnamefont
+  {Shankaranarayanan}},\ }\bibfield  {title} {\enquote {\bibinfo {title}
+  {{Analytical computation of quasinormal modes of slowly rotating black holes
+  in dynamical Chern-Simons gravity}},}\ }\href {\doibase
+  10.1103/PhysRevD.104.064034} {\bibfield  {journal} {\bibinfo  {journal}
+  {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {104}},\ \bibinfo {pages}
+  {064034} (\bibinfo {year} {2021})},\ \Eprint
+  {http://arxiv.org/abs/2106.06209} {arXiv:2106.06209 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Cardoso}\ and\ \citenamefont
+  {Gualtieri}(2009{\natexlab{b}})}]{QNM_dCS_03}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {V.}~\bibnamefont
+  {Cardoso}}\ and\ \bibinfo {author} {\bibfnamefont {L.}~\bibnamefont
+  {Gualtieri}},\ }\bibfield  {title} {\enquote {\bibinfo {title}
+  {{Perturbations of Schwarzschild black holes in Dynamical Chern-Simons
+  modified gravity}},}\ }\href {\doibase 10.1103/PhysRevD.81.089903} {\bibfield
+   {journal} {\bibinfo  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo {volume}
+  {80}},\ \bibinfo {pages} {064008} (\bibinfo {year} {2009}{\natexlab{b}})},\
+  \bibinfo {note} {[Erratum: Phys.Rev.D 81, 089903 (2010)]},\ \Eprint
+  {http://arxiv.org/abs/0907.5008} {arXiv:0907.5008 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Yunes}\ and\ \citenamefont
+  {Sopuerta}(2008)}]{QNM_dCS_04}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {N.}~\bibnamefont
+  {Yunes}}\ and\ \bibinfo {author} {\bibfnamefont {C.~F.}\ \bibnamefont
+  {Sopuerta}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Perturbations
+  of Schwarzschild Black Holes in Chern-Simons Modified Gravity}},}\ }\href
+  {\doibase 10.1103/PhysRevD.77.064007} {\bibfield  {journal} {\bibinfo
+  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {77}},\ \bibinfo
+  {pages} {064007} (\bibinfo {year} {2008})},\ \Eprint
+  {http://arxiv.org/abs/0712.1028} {arXiv:0712.1028 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Bl\'azquez-Salcedo}\ \emph
+  {et~al.}(2017)\citenamefont {Bl\'azquez-Salcedo}, \citenamefont {Khoo},\ and\
+  \citenamefont {Kunz}}]{QNM_EdGB_01}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {J.~L.}\ \bibnamefont
+  {Bl\'azquez-Salcedo}}, \bibinfo {author} {\bibfnamefont {F.~S.}\ \bibnamefont
+  {Khoo}}, \ and\ \bibinfo {author} {\bibfnamefont {J.}~\bibnamefont {Kunz}},\
+  }\bibfield  {title} {\enquote {\bibinfo {title} {{Quasinormal modes of
+  Einstein-Gauss-Bonnet-dilaton black holes}},}\ }\href {\doibase
+  10.1103/PhysRevD.96.064008} {\bibfield  {journal} {\bibinfo  {journal} {Phys.
+  Rev. D}\ }\textbf {\bibinfo {volume} {96}},\ \bibinfo {pages} {064008}
+  (\bibinfo {year} {2017})},\ \Eprint {http://arxiv.org/abs/1706.03262}
+  {arXiv:1706.03262 [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Pierini}\ and\ \citenamefont
+  {Gualtieri}(2021{\natexlab{b}})}]{QNM_EdGB_02}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {L.}~\bibnamefont
+  {Pierini}}\ and\ \bibinfo {author} {\bibfnamefont {L.}~\bibnamefont
+  {Gualtieri}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Quasi-normal
+  modes of rotating black holes in Einstein-dilaton Gauss-Bonnet gravity: the
+  first order in rotation}},}\ }\href {\doibase 10.1103/PhysRevD.103.124017}
+  {\bibfield  {journal} {\bibinfo  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo
+  {volume} {103}},\ \bibinfo {pages} {124017} (\bibinfo {year}
+  {2021}{\natexlab{b}})},\ \Eprint {http://arxiv.org/abs/2103.09870}
+  {arXiv:2103.09870 [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Pierini}\ and\ \citenamefont
+  {Gualtieri}(2022{\natexlab{b}})}]{QNM_EdGB_03}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {L.}~\bibnamefont
+  {Pierini}}\ and\ \bibinfo {author} {\bibfnamefont {L.}~\bibnamefont
+  {Gualtieri}},\ }\bibfield  {title} {\enquote {\bibinfo {title} {{Quasi-normal
+  modes of rotating black holes in Einstein-dilaton Gauss-Bonnet gravity: the
+  second order in rotation}},}\ }\href@noop {} {\  (\bibinfo {year}
+  {2022}{\natexlab{b}})},\ \Eprint {http://arxiv.org/abs/2207.11267}
+  {arXiv:2207.11267 [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Wagle}\ \emph
+  {et~al.}(2022{\natexlab{b}})\citenamefont {Wagle}, \citenamefont {Yunes},\
+  and\ \citenamefont {Silva}}]{QNM_dCS_01}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {P.}~\bibnamefont
+  {Wagle}}, \bibinfo {author} {\bibfnamefont {N.}~\bibnamefont {Yunes}}, \ and\
+  \bibinfo {author} {\bibfnamefont {H.~O.}\ \bibnamefont {Silva}},\ }\bibfield
+  {title} {\enquote {\bibinfo {title} {{Quasinormal modes of slowly-rotating
+  black holes in dynamical Chern-Simons gravity}},}\ }\href {\doibase
+  10.1103/PhysRevD.105.124003} {\bibfield  {journal} {\bibinfo  {journal}
+  {Phys. Rev. D}\ }\textbf {\bibinfo {volume} {105}},\ \bibinfo {pages}
+  {124003} (\bibinfo {year} {2022}{\natexlab{b}})},\ \Eprint
+  {http://arxiv.org/abs/2103.09913} {arXiv:2103.09913 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Dolan}\ \emph {et~al.}(2022)\citenamefont {Dolan},
+  \citenamefont {Kavanagh},\ and\ \citenamefont {Wardell}}]{Dolan:2021ijg}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {S.~R.}\ \bibnamefont
+  {Dolan}}, \bibinfo {author} {\bibfnamefont {C.}~\bibnamefont {Kavanagh}}, \
+  and\ \bibinfo {author} {\bibfnamefont {B.}~\bibnamefont {Wardell}},\
+  }\bibfield  {title} {\enquote {\bibinfo {title} {{Gravitational Perturbations
+  of Rotating Black Holes in Lorenz Gauge}},}\ }\href {\doibase
+  10.1103/PhysRevLett.128.151101} {\bibfield  {journal} {\bibinfo  {journal}
+  {Phys. Rev. Lett.}\ }\textbf {\bibinfo {volume} {128}},\ \bibinfo {pages}
+  {151101} (\bibinfo {year} {2022})},\ \Eprint
+  {http://arxiv.org/abs/2108.06344} {arXiv:2108.06344 [gr-qc]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Cardoso}\ \emph
+  {et~al.}(2014{\natexlab{b}})\citenamefont {Cardoso}, \citenamefont {Dias},
+  \citenamefont {Hartnett}, \citenamefont {Lehner},\ and\ \citenamefont
+  {Santos}}]{Spectral_06}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {V.}~\bibnamefont
+  {Cardoso}}, \bibinfo {author} {\bibfnamefont {O.~J.~C.}\ \bibnamefont
+  {Dias}}, \bibinfo {author} {\bibfnamefont {G.~S.}\ \bibnamefont {Hartnett}},
+  \bibinfo {author} {\bibfnamefont {L.}~\bibnamefont {Lehner}}, \ and\ \bibinfo
+  {author} {\bibfnamefont {J.~E.}\ \bibnamefont {Santos}},\ }\bibfield  {title}
+  {\enquote {\bibinfo {title} {{Holographic thermalization, quasinormal modes
+  and superradiance in Kerr-AdS}},}\ }\href {\doibase 10.1007/JHEP04(2014)183}
+  {\bibfield  {journal} {\bibinfo  {journal} {JHEP}\ }\textbf {\bibinfo
+  {volume} {04}},\ \bibinfo {pages} {183} (\bibinfo {year}
+  {2014}{\natexlab{b}})},\ \Eprint {http://arxiv.org/abs/1312.5323}
+  {arXiv:1312.5323 [hep-th]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Dias}\ and\ \citenamefont
+  {Santos}(2013)}]{Dias:2013sdc}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {O.~J.~C.}\
+  \bibnamefont {Dias}}\ and\ \bibinfo {author} {\bibfnamefont {J.~E.}\
+  \bibnamefont {Santos}},\ }\bibfield  {title} {\enquote {\bibinfo {title}
+  {{Boundary Conditions for Kerr-AdS Perturbations}},}\ }\href {\doibase
+  10.1007/JHEP10(2013)156} {\bibfield  {journal} {\bibinfo  {journal} {JHEP}\
+  }\textbf {\bibinfo {volume} {10}},\ \bibinfo {pages} {156} (\bibinfo {year}
+  {2013})},\ \Eprint {http://arxiv.org/abs/1302.1580} {arXiv:1302.1580
+  [hep-th]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Monteiro}\ \emph
+  {et~al.}(2010{\natexlab{b}})\citenamefont {Monteiro}, \citenamefont {Perry},\
+  and\ \citenamefont {Santos}}]{Monteiro:2009ke}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {R.}~\bibnamefont
+  {Monteiro}}, \bibinfo {author} {\bibfnamefont {M.~J.}\ \bibnamefont {Perry}},
+  \ and\ \bibinfo {author} {\bibfnamefont {J.~E.}\ \bibnamefont {Santos}},\
+  }\bibfield  {title} {\enquote {\bibinfo {title} {{Semiclassical instabilities
+  of Kerr-AdS black holes}},}\ }\href {\doibase 10.1103/PhysRevD.81.024001}
+  {\bibfield  {journal} {\bibinfo  {journal} {Phys. Rev. D}\ }\textbf {\bibinfo
+  {volume} {81}},\ \bibinfo {pages} {024001} (\bibinfo {year}
+  {2010}{\natexlab{b}})},\ \Eprint {http://arxiv.org/abs/0905.2334}
+  {arXiv:0905.2334 [gr-qc]} \BibitemShut {NoStop}%
+\bibitem [{\citenamefont {Dias}\ \emph
+  {et~al.}(2009{\natexlab{b}})\citenamefont {Dias}, \citenamefont {Figueras},
+  \citenamefont {Monteiro}, \citenamefont {Santos},\ and\ \citenamefont
+  {Emparan}}]{Dias:2009iu}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {O.~J.~C.}\
+  \bibnamefont {Dias}}, \bibinfo {author} {\bibfnamefont {P.}~\bibnamefont
+  {Figueras}}, \bibinfo {author} {\bibfnamefont {R.}~\bibnamefont {Monteiro}},
+  \bibinfo {author} {\bibfnamefont {J.~E.}\ \bibnamefont {Santos}}, \ and\
+  \bibinfo {author} {\bibfnamefont {R.}~\bibnamefont {Emparan}},\ }\bibfield
+  {title} {\enquote {\bibinfo {title} {{Instability and new phases of
+  higher-dimensional rotating black holes}},}\ }\href {\doibase
+  10.1103/PhysRevD.80.111701} {\bibfield  {journal} {\bibinfo  {journal} {Phys.
+  Rev. D}\ }\textbf {\bibinfo {volume} {80}},\ \bibinfo {pages} {111701}
+  (\bibinfo {year} {2009}{\natexlab{b}})},\ \Eprint
+  {http://arxiv.org/abs/0907.2248} {arXiv:0907.2248 [hep-th]} \BibitemShut
+  {NoStop}%
+\bibitem [{\citenamefont {Dias}\ \emph {et~al.}(2023)\citenamefont {Dias},
+  \citenamefont {Ishii}, \citenamefont {Murata}, \citenamefont {Santos},\ and\
+  \citenamefont {Way}}]{Dias:2022str}%
+  \BibitemOpen
+  \bibfield  {author} {\bibinfo {author} {\bibfnamefont {O.~J.~C.}\
+  \bibnamefont {Dias}}, \bibinfo {author} {\bibfnamefont {T.}~\bibnamefont
+  {Ishii}}, \bibinfo {author} {\bibfnamefont {K.}~\bibnamefont {Murata}},
+  \bibinfo {author} {\bibfnamefont {J.~E.}\ \bibnamefont {Santos}}, \ and\
+  \bibinfo {author} {\bibfnamefont {B.}~\bibnamefont {Way}},\ }\bibfield
+  {title} {\enquote {\bibinfo {title} {{Gregory-Laflamme and superradiance
+  encounter black resonator strings}},}\ }\href {\doibase
+  10.1007/JHEP02(2023)069} {\bibfield  {journal} {\bibinfo  {journal} {JHEP}\
+  }\textbf {\bibinfo {volume} {02}},\ \bibinfo {pages} {069} (\bibinfo {year}
+  {2023})},\ \Eprint {http://arxiv.org/abs/2212.01400} {arXiv:2212.01400
+  [gr-qc]} \BibitemShut {NoStop}%
+\end{thebibliography}%
