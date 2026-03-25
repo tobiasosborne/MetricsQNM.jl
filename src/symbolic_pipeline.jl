@@ -241,17 +241,35 @@ function _r_to_z(K_r::PDECoefficients, rp::Float64, d_max::Int)
     K_z = PDECoefficients([Dict{NTuple{6,Int}, ComplexF64}() for _ in 1:10],
                           fill(d_max, 10), fill(20, 10))
     # Precompute binomial coefficients as Float64 via BigInt to avoid Int64 overflow
-    # (sGB correction has d_max up to 80; binomial(77,22) > typemax(Int64))
     binom = [Float64(binomial(big(n), big(k))) for n in 0:d_max, k in 0:d_max]
     for k in 1:10
         for ((γ, δ, σ, α, β, j), G_val) in K_r.equations[k]
-            δ > d_max && continue
-            coeff = (2rp)^δ * G_val
-            for jz in 0:(d_max - δ)
-                K_val = coeff * binom[d_max - δ + 1, jz + 1]
-                abs(K_val) < 1e-15 && continue
-                key = (0, jz, σ, α, β, j)
-                K_z.equations[k][key] = get(K_z.equations[k], key, 0.0im) + K_val
+            if δ >= 0
+                # Positive δ: r^δ = (2r₊)^δ / (1+z)^δ
+                # Multiply by (1+z)^{d_max}: → (2r₊)^δ · (1+z)^{d_max-δ}
+                # = (2r₊)^δ · Σ_{j=0}^{d_max-δ} C(d_max-δ, j) · z^j
+                δ > d_max && continue
+                coeff = (2rp)^δ * G_val
+                for jz in 0:(d_max - δ)
+                    K_val = coeff * binom[d_max - δ + 1, jz + 1]
+                    abs(K_val) < 1e-15 && continue
+                    key = (0, jz, σ, α, β, j)
+                    K_z.equations[k][key] = get(K_z.equations[k], key, 0.0im) + K_val
+                end
+            else
+                # Negative δ: r^δ = (1+z)^{|δ|} / (2r₊)^{|δ|}
+                # Multiply by (1+z)^{d_max}: → (1+z)^{d_max+|δ|} / (2r₊)^{|δ|}
+                # = Σ_{j=0}^{d_max+|δ|} C(d_max+|δ|, j) · z^j / (2r₊)^{|δ|}
+                abs_δ = -δ
+                deg = d_max + abs_δ  # z-polynomial degree
+                coeff = G_val / (2rp)^abs_δ
+                for jz in 0:deg
+                    bcoeff = Float64(binomial(big(deg), big(jz)))
+                    K_val = coeff * bcoeff
+                    abs(K_val) < 1e-15 && continue
+                    key = (0, jz, σ, α, β, j)
+                    K_z.equations[k][key] = get(K_z.equations[k], key, 0.0im) + K_val
+                end
             end
         end
     end
@@ -1052,17 +1070,10 @@ function build_sgb_Dtilde1(a::Float64, N::Int, m::Int;
                 H_rp = H_order[p]  # RatPoly for H_p at a-order n_pow
                 isempty(H_rp.num.terms) && continue
 
-                # Multiply c (SparsePoly, no denom) × H (RatPoly, r-denom)
+                # Multiply c (SparsePoly, no denom) × H_num (SparsePoly)
+                # Do NOT multiply by r^t to clear — use net_δ with negative values
                 product_num = c_poly * H_rp.num
-                product_rp = RatPoly(product_num, H_rp.den)
-
-                # Clear the r-denominator by multiplying into numerator
-                if H_rp.den.t > 0
-                    r_poly = var_poly(1)
-                    product_cleared = product_num * (r_poly ^ H_rp.den.t)
-                else
-                    product_cleared = product_num
-                end
+                H_r_denom = H_rp.den.t  # r-denominator power from H_p
 
                 # Initialize target a-order if needed
                 if !haskey(K_per_target, target_a)
@@ -1072,16 +1083,17 @@ function build_sgb_Dtilde1(a::Float64, N::Int, m::Int;
                     push!(target_a_orders, target_a)
                 end
 
-                # ω-decompose and accumulate
+                # ω-decompose with NET r-degree (can be negative from H_p denominator)
                 j_d, α_d, β_d = h_map[d]
-                for (exps, coeff_val) in product_cleared.terms
+                for (exps, coeff_val) in product_num.terms
                     abs(coeff_val) < 1e-15 && continue
                     δ, σ, p_ω, q_ω, s_iu, _a_check = exps
+                    net_δ = δ - H_r_denom  # can be negative!
                     G0, G1, G2 = _omega_monomial_to_G(p_ω, q_ω, s_iu, coeff_val)
 
                     for (γ, Gval) in enumerate((G0, G1, G2))
                         abs(Gval) < 1e-15 && continue
-                        key = (γ - 1, δ, σ, α_d, β_d, j_d)
+                        key = (γ - 1, net_δ, σ, α_d, β_d, j_d)
                         Kγ = K_per_target[target_a][γ]
                         Kγ.equations[k][key] =
                             get(Kγ.equations[k], key, 0.0im) + Gval
@@ -1094,14 +1106,15 @@ function build_sgb_Dtilde1(a::Float64, N::Int, m::Int;
         if n_contributions > 0 && verbose
             K0, K1, K2 = K_per_target[target_a]
             n_terms = sum(sum(length(d) for d in K.equations) for K in (K0, K1, K2))
-            d_max_order = 0
+            d_max_order = 0; d_min_order = 0
             for K in (K0, K1, K2), kk in 1:10
                 for ((_, δ, _, _, _, _), _) in K.equations[kk]
                     d_max_order = max(d_max_order, δ)
+                    d_min_order = min(d_min_order, δ)
                 end
             end
-            @printf("    a^%d: %d contributions, %d terms, d_max=%d\n",
-                    target_a, n_contributions, n_terms, d_max_order)
+            @printf("    a^%d: %d contributions, %d terms, δ∈[%d,%d]\n",
+                    target_a, n_contributions, n_terms, d_min_order, d_max_order)
             flush(stdout)
         end
     end
@@ -1113,18 +1126,30 @@ function build_sgb_Dtilde1(a::Float64, N::Int, m::Int;
     # Step 4: Per-a-order r→z + assembly + weighted sum
     verbose && (println("\nPhase 4: Per-a-order assembly..."); flush(stdout))
 
-    # Compute shared d_max
-    d_max = 0
+    # Compute shared d_max: for positive δ, z-degree = d_max - δ;
+    # for negative δ, z-degree = d_max + |δ|. Both must fit in basis.
+    # d_max = max(positive δ) ensures positive terms fit.
+    # Negative δ terms produce z-degree d_max + |δ| — handled by extended _r_to_z.
+    d_max_pos = 0
+    d_min_neg = 0
     for ta in target_a_orders
         for K in K_per_target[ta], kk in 1:10
             for ((_, δ, _, _, _, _), _) in K.equations[kk]
-                d_max = max(d_max, δ)
+                if δ >= 0
+                    d_max_pos = max(d_max_pos, δ)
+                else
+                    d_min_neg = min(d_min_neg, δ)
+                end
             end
         end
     end
-    verbose && (println("  Shared d_max: $d_max"); flush(stdout))
+    # z-basis needs: max(d_max_pos, d_max_pos + |d_min_neg|) = d_max_pos + |d_min_neg|
+    d_max = d_max_pos
+    d_max_z = d_max + abs(d_min_neg)  # max z-degree from negative-δ terms
+    verbose && (@printf("  d_max_pos=%d, min_neg_δ=%d, z-basis d_max=%d\n",
+                        d_max_pos, d_min_neg, d_max_z); flush(stdout))
 
-    basis = spectral_basis(N, m; max_delta=d_max)
+    basis = spectral_basis(N, m; max_delta=d_max_z)
     bs = basis.block_size
 
     D0_total = zeros(ComplexF64, 10bs, 6bs)
