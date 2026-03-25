@@ -840,6 +840,142 @@ function build_system_bespoke_sgb(a::Float64, N::Int, m::Int;
 end
 
 # ═══════════════════════════════════════════════════════════════════════════════
+#  sGB CORRECTION coefficient extraction (Source 1: Ricci correction from H_i)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+"""
+    extract_sgb_correction_symbolic_a(; P=3, Q=1, S=1, verbose=false)
+        → (c_kdp_per_a::Dict{Int, Dict{Tuple{Int,Int,Int}, SparsePoly}}, a_powers)
+
+Extract sGB correction coefficients c_{k,d,p}(r,χ,ω) with SYMBOLIC `a`.
+
+Double probing: for each equation k, h-derivative d, and H-parameter p,
+extracts the coefficient c_{k,d,p} as a SparsePoly (after clearing denominators
+and splitting by a-exponent).
+
+Returns:
+- `c_kdp_per_a[a_exp][(k,d,p)]` = cleared SparsePoly for that a-order
+- `a_powers` = sorted a-exponents found
+"""
+function extract_sgb_correction_symbolic_a(; P::Int=3, Q::Int=1, S::Int=1,
+                                            verbose::Bool=false)
+    verbose && (println("  Computing sGB correction equations..."); flush(stdout))
+    eqs_corr, coords, params, hfuncs, freq_vars, H_params_struct =
+        compute_sgb_correction_equations(2; verbose=verbose)
+    r, chi = coords[2], coords[3]
+    a_s = params[1]
+    omega_re, omega_im, iu_sym = freq_vars
+
+    # Discover h-derivative terms (same as GR extraction)
+    all_vars = Set{Any}()
+    for eq in eqs_corr, v in Symbolics.get_variables(eq)
+        any(occursin("h$j", string(v)) for j in 1:6) && push!(all_vars, v)
+    end
+    h_terms = sort(collect(all_vars), by=string)
+    h_map = _parse_h_terms(string.(h_terms))
+    sub_zero_h = Dict{Any,Any}(t => Num(0) for t in h_terms)
+    n_h = length(h_terms)
+    n_eqs = length(eqs_corr)
+
+    # H-parameter symbols (24 abstract variables)
+    H_param_syms = _H_PARAMS
+    n_H = length(H_param_syms)
+    sub_zero_H = Dict{Any,Any}(Symbolics.unwrap(H_param_syms[p]) => Num(0) for p in 1:n_H)
+
+    # Build symbolic-a conversion context
+    var_list = Num[r, chi, omega_re, omega_im, iu_sym, a_s]
+    ctx = SymToPolyCtx(var_list)  # symbolic `a` at index 6
+
+    verbose && (println("  Double probing: $n_eqs eqs × $n_h h-terms × $n_H H-params..."); flush(stdout))
+
+    t_start = time()
+
+    # Pass 1: For each (k, d), extract intermediate with h_d=1
+    # Then for each p, extract c_{k,d,p} with H_p=1
+    # Convert to RatPoly, clear denominators, split by a-exponent
+    # All serial (Symbolics.substitute is not thread-safe)
+
+    c_kdp_all = Dict{Tuple{Int,Int,Int}, Dict{Int, SparsePoly}}()  # (k,d,p) → Dict{a_exp, SparsePoly}
+    n_nonzero_kd = 0
+    n_nonzero_kdp = 0
+
+    for k in 1:n_eqs
+        for d in 1:n_h
+            # Stage 1: probe h_d=1, others=0
+            sub_h = copy(sub_zero_h)
+            sub_h[h_terms[d]] = Num(1)
+            intermediate = Symbolics.substitute(eqs_corr[k], sub_h)
+            isequal(intermediate, Num(0)) && continue
+            n_nonzero_kd += 1
+
+            # Stage 2: for each H-parameter p, probe H_p=1, others=0
+            for p in 1:n_H
+                sub_H = copy(sub_zero_H)
+                sub_H[Symbolics.unwrap(H_param_syms[p])] = Num(1)
+                c_expr = Symbolics.substitute(intermediate, sub_H)
+                isequal(c_expr, Num(0)) && continue
+                n_nonzero_kdp += 1
+
+                # Convert to RatPoly with symbolic a (NO numerical substitution)
+                rp = symexpr_to_poly(c_expr, ctx)
+
+                # Clear denominators
+                poly, _ = clear_denominators(rp, P, Q, S, ctx)
+
+                # Split by a-exponent
+                per_a = _split_poly_by_var(poly, 6)
+
+                c_kdp_all[(k, d, p)] = per_a
+            end
+        end
+
+        if verbose && k % 2 == 0
+            elapsed = time() - t_start
+            @printf("    eq %d/%d: %d (k,d) pairs, %d (k,d,p) triples, %.1fs\n",
+                    k, n_eqs, n_nonzero_kd, n_nonzero_kdp, elapsed)
+            flush(stdout)
+        end
+    end
+
+    verbose && (@printf("  Extraction: %d non-zero (k,d,p) triples in %.1fs\n",
+                        n_nonzero_kdp, time() - t_start); flush(stdout))
+
+    # Collect all a-exponents
+    all_a_orders = Set{Int}()
+    for per_a in values(c_kdp_all)
+        union!(all_a_orders, keys(per_a))
+    end
+    a_powers = sort(collect(all_a_orders))
+
+    # Restructure: per_a_order → Dict of (k,d,p) → SparsePoly
+    c_kdp_per_a = Dict{Int, Dict{Tuple{Int,Int,Int}, SparsePoly}}()
+    for a_exp in a_powers
+        c_kdp_per_a[a_exp] = Dict{Tuple{Int,Int,Int}, SparsePoly}()
+    end
+    for ((k, d, p), per_a) in c_kdp_all
+        for (a_exp, sp) in per_a
+            c_kdp_per_a[a_exp][(k, d, p)] = sp
+        end
+    end
+
+    if verbose
+        for a_exp in a_powers
+            n = length(c_kdp_per_a[a_exp])
+            d_max = 0
+            for sp in values(c_kdp_per_a[a_exp])
+                for (e, _) in sp.terms
+                    d_max = max(d_max, e[1])
+                end
+            end
+            @printf("    a^%d: %d (k,d,p) triples, max r-deg=%d\n", a_exp, n, d_max)
+        end
+        flush(stdout)
+    end
+
+    return c_kdp_per_a, a_powers
+end
+
+# ═══════════════════════════════════════════════════════════════════════════════
 #  Per-equation normalization
 # ═══════════════════════════════════════════════════════════════════════════════
 
