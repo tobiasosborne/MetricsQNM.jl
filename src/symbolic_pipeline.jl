@@ -975,6 +975,188 @@ function extract_sgb_correction_symbolic_a(; P::Int=3, Q::Int=1, S::Int=1,
     return c_kdp_per_a, a_powers
 end
 
+"""
+    build_sgb_Dtilde1(a, N, m; P=3, Q=1, S=1, max_a_order=nothing, verbose=false)
+        → (sys_corr::METRICSSystem, norm_factors_corr)
+
+Build D̃⁽¹⁾ (the sGB correction matrix) via fully symbolic pipeline:
+
+1. Extract c_{k,d,p} with symbolic `a` (Phase 5a)
+2. Load H_p per-a-order from Mathematica
+3. Convolve: K_{k,d}^{(α)} = Σ_{m+n=α} Σ_p c_{k,d,p}^{(m)} × H_p^{(n)}
+4. ω-decompose and accumulate into PDECoefficients per-a-order
+5. Transform r→z, assemble, sum with a^α weights
+
+Returns the assembled D̃⁽¹⁾ as a METRICSSystem (D0=D̃⁽¹⁾, D1=D2=0 since
+we evaluate at fixed ω₀ downstream).
+"""
+function build_sgb_Dtilde1(a::Float64, N::Int, m::Int;
+                            P::Int=3, Q::Int=1, S::Int=1,
+                            max_a_order::Union{Nothing,Int}=nothing,
+                            verbose::Bool=false)
+    rp = r_plus(a)
+
+    # Step 1: Extract c_{k,d,p} per-a-order (symbolic a)
+    verbose && (println("Phase 1: Extracting sGB correction coefficients..."); flush(stdout))
+    c_kdp_per_a, c_a_powers = extract_sgb_correction_symbolic_a(; P, Q, S, verbose)
+
+    # Step 2: Load H_p per-a-order from Mathematica
+    verbose && (println("\nPhase 2: Loading H_i per-a-order..."); flush(stdout))
+    H_per_order, H_a_powers = load_H_ratpolys_per_order(; verbose)
+
+    # Step 3: Convolve c × H per-a-order
+    # For target a-order α: K^{(α)} = Σ_{m+n=α} Σ_p c^{(m)}_{k,d,p} × H_p^{(n)}
+    verbose && (println("\nPhase 3: Convolving c × H per-a-order..."); flush(stdout))
+    t_conv = time()
+
+    # Determine which target a-orders to compute
+    max_target = max_a_order !== nothing ? max_a_order :
+                 maximum(c_a_powers) + maximum(H_a_powers)
+
+    # For each target a-order, accumulate K_{k,d} contributions
+    # K_{k,d} goes into PDECoefficients as (γ, δ, σ, α_r, β_χ, j) keyed entries
+    # The h_map tells us which (j, α_r, β_χ) each d corresponds to
+
+    # Recompute h_map (same as in extraction functions)
+    eqs_tmp, coords_tmp, params_tmp, _, freq_tmp, _ =
+        compute_sgb_correction_equations(2; verbose=false)
+    all_vars = Set{Any}()
+    for eq in eqs_tmp, v in Symbolics.get_variables(eq)
+        any(occursin("h$j", string(v)) for j in 1:6) && push!(all_vars, v)
+    end
+    h_terms = sort(collect(all_vars), by=string)
+    h_map = _parse_h_terms(string.(h_terms))
+
+    # Build accumulated PDECoefficients per target a-order
+    # Each key: (γ, δ, σ, α_r, β_χ, j) — same as GR
+    target_a_orders = Int[]
+    K_per_target = Dict{Int, Vector{PDECoefficients}}()  # target_a → [K0, K1, K2]
+
+    for target_a in 0:max_target
+        n_contributions = 0
+
+        for (m_idx, m_pow) in enumerate(c_a_powers)
+            m_pow > target_a && continue
+            n_pow = target_a - m_pow
+
+            # Find H_i a-order index for n_pow
+            H_oi = findfirst(==(n_pow), H_a_powers)
+            H_oi === nothing && continue
+
+            H_order = H_per_order[H_oi]  # 24 RatPolys for this H a-order
+
+            c_at_m = c_kdp_per_a[m_pow]  # Dict of (k,d,p) → SparsePoly
+
+            for ((k, d, p), c_poly) in c_at_m
+                isempty(c_poly.terms) && continue
+                H_rp = H_order[p]  # RatPoly for H_p at a-order n_pow
+                isempty(H_rp.num.terms) && continue
+
+                # Multiply c (SparsePoly, no denom) × H (RatPoly, r-denom)
+                product_num = c_poly * H_rp.num
+                product_rp = RatPoly(product_num, H_rp.den)
+
+                # Clear the r-denominator by multiplying into numerator
+                if H_rp.den.t > 0
+                    r_poly = var_poly(1)
+                    product_cleared = product_num * (r_poly ^ H_rp.den.t)
+                else
+                    product_cleared = product_num
+                end
+
+                # Initialize target a-order if needed
+                if !haskey(K_per_target, target_a)
+                    K_per_target[target_a] = [
+                        PDECoefficients([Dict{NTuple{6,Int}, ComplexF64}() for _ in 1:10],
+                                        fill(50, 10), fill(20, 10)) for _ in 1:3]
+                    push!(target_a_orders, target_a)
+                end
+
+                # ω-decompose and accumulate
+                j_d, α_d, β_d = h_map[d]
+                for (exps, coeff_val) in product_cleared.terms
+                    abs(coeff_val) < 1e-15 && continue
+                    δ, σ, p_ω, q_ω, s_iu, _a_check = exps
+                    G0, G1, G2 = _omega_monomial_to_G(p_ω, q_ω, s_iu, coeff_val)
+
+                    for (γ, Gval) in enumerate((G0, G1, G2))
+                        abs(Gval) < 1e-15 && continue
+                        key = (γ - 1, δ, σ, α_d, β_d, j_d)
+                        Kγ = K_per_target[target_a][γ]
+                        Kγ.equations[k][key] =
+                            get(Kγ.equations[k], key, 0.0im) + Gval
+                    end
+                end
+                n_contributions += 1
+            end
+        end
+
+        if n_contributions > 0 && verbose
+            K0, K1, K2 = K_per_target[target_a]
+            n_terms = sum(sum(length(d) for d in K.equations) for K in (K0, K1, K2))
+            d_max_order = 0
+            for K in (K0, K1, K2), kk in 1:10
+                for ((_, δ, _, _, _, _), _) in K.equations[kk]
+                    d_max_order = max(d_max_order, δ)
+                end
+            end
+            @printf("    a^%d: %d contributions, %d terms, d_max=%d\n",
+                    target_a, n_contributions, n_terms, d_max_order)
+            flush(stdout)
+        end
+    end
+
+    sort!(target_a_orders)
+    verbose && (@printf("  Convolution: %.1fs, %d target a-orders\n",
+                        time() - t_conv, length(target_a_orders)); flush(stdout))
+
+    # Step 4: Per-a-order r→z + assembly + weighted sum
+    verbose && (println("\nPhase 4: Per-a-order assembly..."); flush(stdout))
+
+    # Compute shared d_max
+    d_max = 0
+    for ta in target_a_orders
+        for K in K_per_target[ta], kk in 1:10
+            for ((_, δ, _, _, _, _), _) in K.equations[kk]
+                d_max = max(d_max, δ)
+            end
+        end
+    end
+    verbose && (println("  Shared d_max: $d_max"); flush(stdout))
+
+    basis = spectral_basis(N, m; max_delta=d_max)
+    bs = basis.block_size
+
+    D0_total = zeros(ComplexF64, 10bs, 6bs)
+    D1_total = zeros(ComplexF64, 10bs, 6bs)
+    D2_total = zeros(ComplexF64, 10bs, 6bs)
+
+    for target_a in target_a_orders
+        K0_r, K1_r, K2_r = K_per_target[target_a]
+
+        K0_z = _r_to_z(K0_r, rp, d_max)
+        K1_z = _r_to_z(K1_r, rp, d_max)
+        K2_z = _r_to_z(K2_r, rp, d_max)
+
+        D0_order = assemble_system(K0_z, basis, a).D0
+        D1_order = assemble_system(K1_z, basis, a).D0
+        D2_order = assemble_system(K2_z, basis, a).D0
+
+        weight = a ^ target_a
+        D0_total .+= weight .* D0_order
+        D1_total .+= weight .* D1_order
+        D2_total .+= weight .* D2_order
+
+        verbose && (@printf("    a^%d: weight=%.4e, assembled\n", target_a, weight); flush(stdout))
+    end
+
+    sys_corr = METRICSSystem(D0_total, D1_total, D2_total, N, m, a)
+    sys_corr, nf_corr = normalize_system!(sys_corr)
+    verbose && (println("  D̃⁽¹⁾ assembled and normalized"); flush(stdout))
+
+    return sys_corr, nf_corr
+end
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Per-equation normalization
 # ═══════════════════════════════════════════════════════════════════════════════
