@@ -994,8 +994,8 @@ function extract_sgb_correction_symbolic_a(; P::Int=3, Q::Int=1, S::Int=1,
 end
 
 """
-    build_sgb_Dtilde1(a, N, m; P=3, Q=1, S=1, max_a_order=nothing, verbose=false)
-        → (sys_corr::METRICSSystem, norm_factors_corr)
+    build_sgb_Dtilde1(a, N, m; norm_factors, P=3, Q=1, S=1, max_a_order=nothing, verbose=false)
+        → sys_corr::METRICSSystem
 
 Build D̃⁽¹⁾ (the sGB correction matrix) via fully symbolic pipeline:
 
@@ -1004,11 +1004,14 @@ Build D̃⁽¹⁾ (the sGB correction matrix) via fully symbolic pipeline:
 3. Convolve: K_{k,d}^{(α)} = Σ_{m+n=α} Σ_p c_{k,d,p}^{(m)} × H_p^{(n)}
 4. ω-decompose and accumulate into PDECoefficients per-a-order
 5. Transform r→z, assemble, sum with a^α weights
+6. Normalize using the SAME factors as D̃⁽⁰⁾ (required for perturbation theory)
 
-Returns the assembled D̃⁽¹⁾ as a METRICSSystem (D0=D̃⁽¹⁾, D1=D2=0 since
-we evaluate at fixed ω₀ downstream).
+`norm_factors` (required): the 10-element vector returned by `build_system_bespoke_sgb`
+for the GR system. D̃⁽¹⁾ MUST use the same per-equation normalization as D̃⁽⁰⁾
+so that J · x⁽¹⁾ = -D̃⁽¹⁾(ω₀)·v⁰ is row-consistent (Eq. 111 of 2406.11986).
 """
 function build_sgb_Dtilde1(a::Float64, N::Int, m::Int;
+                            norm_factors::Vector{Float64},
                             P::Int=3, Q::Int=1, S::Int=1,
                             max_a_order::Union{Nothing,Int}=nothing,
                             verbose::Bool=false)
@@ -1176,10 +1179,10 @@ function build_sgb_Dtilde1(a::Float64, N::Int, m::Int;
     end
 
     sys_corr = METRICSSystem(D0_total, D1_total, D2_total, N, m, a)
-    sys_corr, nf_corr = normalize_system!(sys_corr)
-    verbose && (println("  D̃⁽¹⁾ assembled and normalized"); flush(stdout))
+    normalize_system!(sys_corr, norm_factors)
+    verbose && (println("  D̃⁽¹⁾ assembled, normalized with D̃⁽⁰⁾ factors"); flush(stdout))
 
-    return sys_corr, nf_corr
+    return sys_corr
 end
 
 # ═══════════════════════════════════════════════════════════════════════════════
