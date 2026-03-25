@@ -722,6 +722,124 @@ function extract_G_bespoke_symbolic_a(; P::Int=3, Q::Int=1, S::Int=1,
 end
 
 # ═══════════════════════════════════════════════════════════════════════════════
+#  Per-a-order system assembly (sGB: symbolic a → per-order D̃ → weighted sum)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+"""
+    build_system_bespoke_sgb(a, N, m; P=3, Q=1, S=1, d_max_override=nothing,
+                             verify=true, verbose=false)
+        → (sys, norm_factors[, verify_discrepancy])
+
+Build D̃₀, D̃₁, D̃₂ via per-a-order symbolic extraction + weighted assembly.
+
+1. Extract G coefficients with symbolic `a` → per-a-order PDECoefficients
+2. Compute shared d_max across all a-orders
+3. For each a-order: r→z transform + Galerkin assembly
+4. Sum: D̃ᵢ = Σ_{k} a^k · D̃ᵢ^{(k)}
+5. Normalize per-equation
+
+If `verify=true`, also runs the numerical `extract_G_bespoke(a)` path and
+compares: the symbolic sum should match the numerical result to ~1e-13.
+Returns the relative discrepancy as 3rd return value.
+"""
+function build_system_bespoke_sgb(a::Float64, N::Int, m::Int;
+                                   P::Int=3, Q::Int=1, S::Int=1,
+                                   d_max_override::Union{Nothing,Int}=nothing,
+                                   verify::Bool=true, verbose::Bool=false)
+    rp = r_plus(a)
+
+    # Step 1: Extract per-a-order G coefficients (symbolic a)
+    verbose && (println("Extracting per-a-order G coefficients (symbolic a)..."); flush(stdout))
+    per_a_Ks, a_powers = extract_G_bespoke_symbolic_a(; P, Q, S, verbose)
+
+    # Step 2: Shared d_max across all a-orders
+    d_max = 0
+    for a_exp in a_powers
+        K0, K1, K2 = per_a_Ks[a_exp]
+        for K in (K0, K1, K2), k in 1:10
+            for ((_, δ, _, _, _, _), _) in K.equations[k]
+                d_max = max(d_max, δ)
+            end
+        end
+    end
+    if d_max_override !== nothing
+        d_max_override < d_max && @warn "d_max_override=$d_max_override < natural d_max=$d_max"
+        d_max = max(d_max, d_max_override)
+    end
+    verbose && (println("  Shared d_max across all a-orders: $d_max"); flush(stdout))
+
+    # Step 3: Shared spectral basis
+    basis = spectral_basis(N, m; max_delta=d_max)
+    bs = basis.block_size  # (N+1)²
+
+    # Step 4: Per-a-order r→z + assemble + weight by a^{a_exp}
+    verbose && (println("Per-a-order assembly (N=$N, d_max=$d_max)..."); flush(stdout))
+
+    D0_total = zeros(ComplexF64, 10bs, 6bs)
+    D1_total = zeros(ComplexF64, 10bs, 6bs)
+    D2_total = zeros(ComplexF64, 10bs, 6bs)
+
+    for a_exp in a_powers
+        K0_r, K1_r, K2_r = per_a_Ks[a_exp]
+
+        K0_z = _r_to_z(K0_r, rp, d_max)
+        K1_z = _r_to_z(K1_r, rp, d_max)
+        K2_z = _r_to_z(K2_r, rp, d_max)
+
+        D0_order = assemble_system(K0_z, basis, a).D0
+        D1_order = assemble_system(K1_z, basis, a).D0
+        D2_order = assemble_system(K2_z, basis, a).D0
+
+        weight = a ^ a_exp  # a^0=1, a^1=a, a^2=a², ...
+        D0_total .+= weight .* D0_order
+        D1_total .+= weight .* D1_order
+        D2_total .+= weight .* D2_order
+
+        if verbose
+            n0 = sum(length(d) for d in K0_r.equations)
+            @printf("    a^%d: weight=%.4e, %d K0 terms\n", a_exp, weight, n0)
+            flush(stdout)
+        end
+    end
+
+    # Step 5: Verification BEFORE normalization (normalize_system! mutates in-place)
+    verify_discrepancy = NaN
+    if verify
+        verbose && (println("Verification: comparing symbolic vs numerical path..."); flush(stdout))
+
+        K0_num, K1_num, K2_num = extract_G_bespoke(a; P, Q, S, verbose=false)
+        K0_nz = _r_to_z(K0_num, rp, d_max)
+        K1_nz = _r_to_z(K1_num, rp, d_max)
+        K2_nz = _r_to_z(K2_num, rp, d_max)
+        D0_num = assemble_system(K0_nz, basis, a).D0
+        D1_num = assemble_system(K1_nz, basis, a).D0
+        D2_num = assemble_system(K2_nz, basis, a).D0
+
+        # Compare pre-normalization (D0_total etc. not yet mutated)
+        Δ_norm = norm(D0_total - D0_num) + norm(D1_total - D1_num) + norm(D2_total - D2_num)
+        ref_norm = norm(D0_num) + norm(D1_num) + norm(D2_num)
+        verify_discrepancy = Δ_norm / max(ref_norm, 1e-30)
+
+        if verbose
+            if verify_discrepancy < 1e-12
+                @printf("  PASS: ||D_sym - D_num|| / ||D_num|| = %.2e\n", verify_discrepancy)
+            else
+                @printf("  FAIL: ||D_sym - D_num|| / ||D_num|| = %.2e\n", verify_discrepancy)
+            end
+            flush(stdout)
+        end
+        verify_discrepancy ≥ 1e-10 && @warn "Symbolic/numerical paths disagree: rel_err = $verify_discrepancy"
+    end
+
+    # Step 6: Normalize (mutates D0_total, D1_total, D2_total via sys reference)
+    sys = METRICSSystem(D0_total, D1_total, D2_total, N, m, a)
+    sys, norm_factors = normalize_system!(sys)
+    verbose && (println("  Per-equation normalization applied"); flush(stdout))
+
+    return sys, norm_factors, verify_discrepancy
+end
+
+# ═══════════════════════════════════════════════════════════════════════════════
 #  Per-equation normalization
 # ═══════════════════════════════════════════════════════════════════════════════
 
