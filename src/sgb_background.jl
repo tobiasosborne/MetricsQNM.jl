@@ -563,8 +563,8 @@ function load_H_ratpolys(a::Float64; verbose::Bool=false)
     # Build a minimal SymToPolyCtx for the conversion
     # We need r_poly and the var_idx mapping — create with Symbolics variables
     # that match the notebook variables (_r_, _χ_)
-    @variables _r_ _χ_ _dummy_ω_re _dummy_ω_im _dummy_iu
-    var_list = Num[_r_, _χ_, _dummy_ω_re, _dummy_ω_im, _dummy_iu]
+    @variables _r_ _χ_ _dummy_ω_re _dummy_ω_im _dummy_iu _dummy_a
+    var_list = Num[_r_, _χ_, _dummy_ω_re, _dummy_ω_im, _dummy_iu, _dummy_a]
     ctx = SymToPolyCtx(var_list, a)
 
     H_ratpolys = Vector{RatPoly}(undef, 24)
@@ -700,11 +700,11 @@ function load_H_ratpolys_per_order(; verbose::Bool=false)
 
     sections = _load_nb_sections(; verbose=false)
 
-    # Map _a_ to variable index 3 (reusing the ω_re slot, which H_i never uses).
+    # Map _a_ to variable index 6 (consistent with N_VARS=6 layout).
     # Use a_val=1.0 for SymToPolyCtx so Σ/Δ polys have multi-term structure
     # and don't accidentally match H_i's monomial r-denominators.
-    @variables _r_ _χ_ _a_ _dummy4 _dummy5
-    var_list = Num[_r_, _χ_, _a_, _dummy4, _dummy5]
+    @variables _r_ _χ_ _dummy_ωre _dummy_ωim _dummy_iu _a_
+    var_list = Num[_r_, _χ_, _dummy_ωre, _dummy_ωim, _dummy_iu, _a_]
     ctx = SymToPolyCtx(var_list, 1.0)
 
     # Parse each H_i and split by a-power
@@ -729,7 +729,7 @@ function load_H_ratpolys_per_order(; verbose::Bool=false)
         cleanup!(rp_full.num; tol=1e-15)
 
         verbose && (print("split... "); flush(stdout))
-        split = _split_ratpoly_by_var(rp_full, 3)  # 3 = a-variable index
+        split = _split_ratpoly_by_var(rp_full, 6)  # 6 = a-variable index
         all_rp_split[i] = split
         union!(all_a_orders, keys(split))
 

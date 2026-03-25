@@ -33,12 +33,12 @@ include("sparse_poly.jl")
 include("coefficients.jl")
 export PDECoefficients
 
-# ── Bespoke symbolic G-extraction pipeline ───────────────────────────────────
-include("symbolic_pipeline.jl")
-
 # ── Spectral Galerkin assembly (D̃ matrices) ──────────────────────────────────
 include("assembly.jl")
 export METRICSSystem, assemble_system
+
+# ── Bespoke symbolic G-extraction pipeline ───────────────────────────────────
+include("symbolic_pipeline.jl")
 
 # ── Rectangular QEP solver (SVD compression + companion QZ) ─────────────────
 include("rectangular_qep.jl")

@@ -2,6 +2,24 @@
 #
 # Uses direct SymbolicUtils Add.dict / Mul.dict tree walking for O(n)
 # monomial coefficient extraction, bypassing the slow polynomial_coeffs API.
+
+"""
+    _parse_h_terms(h_term_strings) → Vector{Tuple{Int, Int, Int}}
+
+Parse h-derivative term names into (field_index j, r_deriv_order α, χ_deriv_order β).
+E.g. "Differential(r)(h3(r, chi))" → (3, 1, 0).
+"""
+function _parse_h_terms(h_term_strings::Vector{String})
+    map = Vector{Tuple{Int, Int, Int}}()
+    for s in h_term_strings
+        j = findfirst(jj -> occursin("h$(jj)", s), 1:6)
+        @assert j !== nothing "Cannot parse j from: $s"
+        α_r = count("Differential(r", s)
+        β_χ = count("Differential(chi", s)
+        push!(map, (j, α_r, β_χ))
+    end
+    return map
+end
 #
 # Pipeline:
 # 1. compute_field_equations → 10 symbolic equations
@@ -277,7 +295,9 @@ function extract_G_exact(a::Float64; P::Int=3, Q::Int=1, S::Int=1,
 
     verbose && println("  Extracting $n_h × $n_eqs = $(n_h * n_eqs) coefficients...")
 
-    # Variables for monomial extraction (after substituting a_s)
+    # Variables for monomial extraction (after substituting a_s → numerical)
+    # NOTE: 5 variables only — this is the Symbolics.jl tree-walking path.
+    # Do NOT add a_s here; it's substituted numerically before tree walk.
     var_list = Num[r, chi, omega_re, omega_im, iu_sym]
 
     # Result: three PDECoefficients for ω⁰, ω¹, ω²
@@ -335,7 +355,7 @@ function extract_G_exact(a::Float64; P::Int=3, Q::Int=1, S::Int=1,
         for (exps, coeff_val) in mono_coeffs
             abs(coeff_val) < 1e-15 && continue
 
-            δ, σ, p_ω, q_ω, s_iu = exps
+            δ, σ, p_ω, q_ω, s_iu = exps  # 5-tuple (Symbolics path, no a)
             G0, G1, G2 = _omega_monomial_to_G(p_ω, q_ω, s_iu, coeff_val)
 
             for (γ, Gval) in enumerate((G0, G1, G2))
@@ -409,7 +429,7 @@ function extract_G_bespoke(a::Float64; P::Int=3, Q::Int=1, S::Int=1,
     n_h = length(h_terms)
     n_eqs = length(eqs)
 
-    var_list = Num[r, chi, omega_re, omega_im, iu_sym]
+    var_list = Num[r, chi, omega_re, omega_im, iu_sym, a_s]
     ctx = SymToPolyCtx(var_list, a)
 
     verbose && (println("  Extracting $n_h × $n_eqs = $(n_h * n_eqs) coefficients via SparsePoly..."); flush(stdout))
@@ -466,7 +486,7 @@ function extract_G_bespoke(a::Float64; P::Int=3, Q::Int=1, S::Int=1,
         for (exps, coeff_val) in mono_coeffs
             abs(coeff_val) < 1e-15 && continue
 
-            δ, σ, p_ω, q_ω, s_iu = exps
+            δ, σ, p_ω, q_ω, s_iu, _a_exp = exps
             G0, G1, G2 = _omega_monomial_to_G(p_ω, q_ω, s_iu, coeff_val)
 
             for (γ, Gval) in enumerate((G0, G1, G2))

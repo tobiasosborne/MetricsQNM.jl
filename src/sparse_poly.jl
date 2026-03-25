@@ -9,7 +9,8 @@
 # powers structurally and clear them by polynomial multiplication —
 # no GCD computation needed.
 #
-# Variables: (r, χ, ω_re, ω_im, iu) — 5 variables, fixed order.
+# Variables: (r, χ, ω_re, ω_im, iu, a) — 6 variables, fixed order.
+# Variable 6 (a = spin parameter) is symbolic for sGB, always 0 for GR.
 
 using Symbolics: SymbolicUtils
 
@@ -17,10 +18,10 @@ export SparsePoly, DenomSig, RatPoly
 export symexpr_to_poly, clear_denominators
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  SparsePoly: Dict{NTuple{5,Int}, Float64}
+#  SparsePoly: Dict{NTuple{6,Int}, Float64}
 # ═══════════════════════════════════════════════════════════════════════════════
 
-const N_VARS = 5
+const N_VARS = 6
 const ExpVec = NTuple{N_VARS, Int}
 const ZERO_EXP = ntuple(_ -> 0, N_VARS)
 
@@ -180,7 +181,7 @@ Context for the tree-walking conversion.  Holds variable→index map and
 precomputed factor polynomials for Σ, Δ, (1-χ²), r.
 """
 struct SymToPolyCtx
-    var_idx::Dict{Any, Int}       # unwrapped Sym → variable index (1..5)
+    var_idx::Dict{Any, Int}       # unwrapped Sym → variable index (1..N_VARS)
     Σ_poly::SparsePoly            # r² + a²χ²
     Δ_poly::SparsePoly            # r² - 2r + a²
     s2_poly::SparsePoly           # 1 - χ²
@@ -192,9 +193,11 @@ struct SymToPolyCtx
 end
 
 """
-    SymToPolyCtx(var_syms, a_val)
+    SymToPolyCtx(var_syms, a_val::Float64)
 
-Build conversion context.  `var_syms` = [r, χ, ω_re, ω_im, iu] as Symbolics.Num.
+Build conversion context with NUMERICAL `a`.  GR backward-compat path.
+`var_syms` = [r, χ, ω_re, ω_im, iu, a_dummy] as Symbolics.Num (length 6).
+The 6th variable slot (a) will always have exponent 0 in the output.
 """
 function SymToPolyCtx(var_syms::Vector, a_val::Float64)
     var_idx = Dict{Any,Int}()
@@ -206,14 +209,41 @@ function SymToPolyCtx(var_syms::Vector, a_val::Float64)
     χ  = var_poly(2)  # χ
     a2 = a_val^2
 
-    Σ_poly  = r^2 + a2 * (χ^2)                    # r² + a²χ²
-    Δ_poly  = r^2 + (-2.0) * r + SparsePoly(a2)   # r² - 2r + a²
+    Σ_poly  = r^2 + a2 * (χ^2)                    # r² + a²χ² (numerical a)
+    Δ_poly  = r^2 + (-2.0) * r + SparsePoly(a2)   # r² - 2r + a² (numerical a)
     s2_poly = SparsePoly(1.0) - χ^2                # 1 - χ²
     r_poly  = r                                     # r (for sGB r-denominator clearing)
 
-    # Hash the unwrapped Symbolics expressions for these factors
-    # so we can identify them in Div denominators
-    Σ_hash  = UInt(0)  # we'll match structurally instead
+    Σ_hash  = UInt(0)
+    Δ_hash  = UInt(0)
+    s2_hash = UInt(0)
+
+    SymToPolyCtx(var_idx, Σ_poly, Δ_poly, s2_poly, r_poly, Σ_hash, Δ_hash, s2_hash)
+end
+
+"""
+    SymToPolyCtx(var_syms)
+
+Build conversion context with SYMBOLIC `a` (variable index 6).
+`var_syms` = [r, χ, ω_re, ω_im, iu, a] as Symbolics.Num (length 6).
+Σ and Δ are 6-variable polynomials containing a as var_poly(6).
+"""
+function SymToPolyCtx(var_syms::Vector)
+    var_idx = Dict{Any,Int}()
+    for (i, v) in enumerate(var_syms)
+        var_idx[Symbolics.unwrap(v)] = i
+    end
+
+    r  = var_poly(1)  # r
+    χ  = var_poly(2)  # χ
+    a  = var_poly(6)  # a (symbolic spin parameter)
+
+    Σ_poly  = r^2 + (a^2) * (χ^2)                 # r² + a²χ² (symbolic a)
+    Δ_poly  = r^2 + (-2.0) * r + a^2              # r² - 2r + a² (symbolic a)
+    s2_poly = SparsePoly(1.0) - χ^2                # 1 - χ²
+    r_poly  = r                                     # r
+
+    Σ_hash  = UInt(0)
     Δ_hash  = UInt(0)
     s2_hash = UInt(0)
 
@@ -383,7 +413,7 @@ function _divide(num_rp::RatPoly, den_rp::RatPoly, ctx::SymToPolyCtx)::RatPoly
 
     # Unknown denominator — dump for debugging
     sorted = sort(collect(den_poly.terms), by=kv->sum(kv[1]), rev=true)
-    terms_str = join(["r^$(e[1])χ^$(e[2])ωr^$(e[3])ωi^$(e[4])iu^$(e[5])=$(round(c,sigdigits=4))"
+    terms_str = join(["r^$(e[1])χ^$(e[2])ωr^$(e[3])ωi^$(e[4])iu^$(e[5])a^$(e[6])=$(round(c,sigdigits=4))"
                       for (e,c) in sorted[1:min(5,end)]], ", ")
     error("symexpr_to_poly: cannot identify denominator as c×Σ^p×Δ^q×(1-χ²)^s×r^t.\n  den has $(length(den_poly.terms)) terms: $terms_str...")
 end
@@ -660,7 +690,7 @@ function reduce_ratpoly(rp::RatPoly, ctx::SymToPolyCtx)
         if r_reduce > 0
             new_terms = Dict{ExpVec, Float64}()
             for (e, c) in num.terms
-                new_terms[(e[1] - r_reduce, e[2], e[3], e[4], e[5])] = c
+                new_terms[ntuple(i -> i == 1 ? e[i] - r_reduce : e[i], N_VARS)] = c
             end
             num = SparsePoly(new_terms)
             dt -= r_reduce
@@ -757,7 +787,7 @@ function clear_denominators(rp::RatPoly, P::Int, Q::Int, S::Int, ctx::SymToPolyC
 end
 
 """
-    symexpr_to_cleared_poly(expr_num, ctx, P, Q, S) → Dict{NTuple{5,Int}, Float64}
+    symexpr_to_cleared_poly(expr_num, ctx, P, Q, S) → Dict{NTuple{N_VARS,Int}, Float64}
 
 One-shot: Symbolics expression → cleared polynomial coefficient dict.
 This replaces the entire simplify_fractions + expand + _walk_expanded_poly pipeline.
