@@ -3,8 +3,9 @@
 
 using MetricsQNM
 using MetricsQNM: build_system_bespoke_sgb, build_sgb_Dtilde1,
-                  solve_qep_with_vectors, compute_jacobian, solve_sgb_perturbation,
-                  normalize_system!
+                  solve_qep_with_vectors, solve_qep_newton,
+                  compute_jacobian, solve_sgb_perturbation,
+                  normalize_system!, sgb_clearing_targets
 using LinearAlgebra
 using Printf
 
@@ -12,12 +13,20 @@ function run_convergence(;
         a_spin::Float64 = 0.3,
         m_mode::Int = 2,
         max_a_order::Int = 2,
-        N_values::Vector{Int} = [6, 8, 10, 12, 14, 16])
+        N_values::Vector{Int} = [12, 16, 20, 24, 28])
 
     println("=" ^ 80)
     println("sGB ω₁ N-convergence study")
     println("a=$a_spin, m=$m_mode, max_a_order=$max_a_order, N=$N_values")
     println("=" ^ 80)
+    flush(stdout)
+
+    # Compute matching clearing targets (D̃⁽⁰⁾ and D̃⁽¹⁾ must use same clearing)
+    println("Computing sGB clearing targets (one-time, ~85s)...")
+    flush(stdout)
+    t0 = time()
+    P, Q, S = sgb_clearing_targets(; verbose=true)
+    @printf("Clearing: P=%d Q=%d S=%d  (%.1fs)\n", P, Q, S, time() - t0)
     flush(stdout)
 
     # Leaver reference
@@ -38,6 +47,7 @@ function run_convergence(;
         do_verify = (N == N_values[1])
         t_gr = time()
         sys_gr, nf_gr, disc = build_system_bespoke_sgb(a_spin, N, m_mode;
+                                                         P, Q, S,
                                                          verify=do_verify, verbose=true)
         t_gr = time() - t_gr
         @printf("  GR total: %.2fs", t_gr)
@@ -45,35 +55,39 @@ function run_convergence(;
         println()
         flush(stdout)
 
-        # --- QEP ---
+        # --- Eigenvalue: full QEP for first N, Newton from previous for rest ---
         t_qep = time()
-        qep = solve_qep_with_vectors(sys_gr; ω₀=ω_L)
-        evals, evecs = qep.eigenvalues, qep.eigenvectors
-
-        best_idx = 0
-        best_dist = Inf
-        for i in eachindex(evals)
-            e = evals[i]
-            (!isfinite(e) || imag(e) ≥ 0) && continue
-            d = abs(e - ω_L)
-            if d < best_dist
-                best_dist = d
-                best_idx = i
+        if isempty(results)
+            # First N: full QEP (no good starting point for Newton)
+            qep = solve_qep_with_vectors(sys_gr; ω₀=ω_L)
+            evals = qep.eigenvalues
+            best_idx = 0; best_dist = Inf
+            for i in eachindex(evals)
+                e = evals[i]
+                (!isfinite(e) || imag(e) ≥ 0) && continue
+                d = abs(e - ω_L)
+                d < best_dist && (best_dist = d; best_idx = i)
             end
+            if best_idx == 0
+                @printf("  WARNING: no physical eigenvalue at N=%d, skipping\n", N)
+                flush(stdout); continue
+            end
+            ω0 = evals[best_idx]
+            v0 = qep.eigenvectors[:, best_idx]
+            method = "QEP"
+        else
+            # Subsequent N: Newton from previous ω₀ (smooth in N)
+            ω_prev = results[end].ω0
+            ω0 = solve_qep_newton(sys_gr, ω_prev)
+            P_ω = sys_gr.D0 + ω0 * sys_gr.D1 + ω0^2 * sys_gr.D2
+            F = svd(P_ω)
+            v0 = conj(F.V[:, end])
+            method = "Newton"
         end
-
-        if best_idx == 0
-            @printf("  WARNING: no physical eigenvalue at N=%d, skipping\n", N)
-            flush(stdout)
-            continue
-        end
-
-        ω0 = evals[best_idx]
-        v0 = evecs[:, best_idx]
         t_qep = time() - t_qep
         Δω0 = abs(ω0 - ω_L)
-        @printf("  QEP: ω₀ = %.15f %+.15fi  |Δ_L|=%.2e  (%.2fs)\n",
-                real(ω0), imag(ω0), Δω0, t_qep)
+        @printf("  %s: ω₀ = %.15f %+.15fi  |Δ_L|=%.2e  (%.2fs)\n",
+                method, real(ω0), imag(ω0), Δω0, t_qep)
         flush(stdout)
 
         # --- Jacobian ---
@@ -87,7 +101,7 @@ function run_convergence(;
         # --- sGB D̃⁽¹⁾ (uses GR norm factors for row consistency) ---
         t_sgb = time()
         sys_corr = build_sgb_Dtilde1(a_spin, N, m_mode;
-                                       norm_factors=nf_gr,
+                                       norm_factors=nf_gr, P, Q, S,
                                        max_a_order=max_a_order, verbose=true)
         t_sgb = time() - t_sgb
         @printf("  sGB total: %.2fs\n", t_sgb)

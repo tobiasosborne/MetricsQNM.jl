@@ -863,13 +863,20 @@ end
 
 """
     extract_sgb_correction_symbolic_a(; P=3, Q=1, S=1, verbose=false)
-        → (c_kdp_per_a::Dict{Int, Dict{Tuple{Int,Int,Int}, SparsePoly}}, a_powers)
+        → (c_kdp_per_a, a_powers, max_denom_per_k::Dict{Int,DenomSig})
 
 Extract sGB correction coefficients c_{k,d,p}(r,χ,ω) with SYMBOLIC `a`.
 
-Double probing: for each equation k, h-derivative d, and H-parameter p,
-extracts the coefficient c_{k,d,p} as a SparsePoly (after clearing denominators
-and splitting by a-exponent).
+Two-pass extraction with uniform denominator clearing per equation:
+  Pass 1 — Convert each c_{k,d,p} to a reduced RatPoly.  Collect the max
+            denominator powers (Σ, Δ, 1-χ², r) across all (d,p) for each
+            equation k.
+  Pass 2 — Clear every (d,p) triple for equation k to those max powers,
+            then split by a-exponent.
+
+This guarantees all terms summed within an equation share a common clearing
+factor, preventing the corruption that arises when different H-parameter
+indices p have different Σ/Δ structures.
 
 Returns:
 - `c_kdp_per_a[a_exp][(k,d,p)]` = cleared SparsePoly for that a-order
@@ -908,25 +915,25 @@ function extract_sgb_correction_symbolic_a(; P::Int=3, Q::Int=1, S::Int=1,
 
     t_start = time()
 
-    # Pass 1: For each (k, d), extract intermediate with h_d=1
-    # Then for each p, extract c_{k,d,p} with H_p=1
-    # Convert to RatPoly, clear denominators, split by a-exponent
-    # All serial (Symbolics.substitute is not thread-safe)
+    # ═══════════════════════════════════════════════════════════════════════
+    # Pass 1: Extract all c_{k,d,p} as reduced RatPolys.
+    #         Collect max denominator powers per equation k so that all
+    #         (d,p) triples within an equation share a common clearing.
+    # ═══════════════════════════════════════════════════════════════════════
 
-    c_kdp_all = Dict{Tuple{Int,Int,Int}, Dict{Int, SparsePoly}}()  # (k,d,p) → Dict{a_exp, SparsePoly}
+    c_kdp_reduced = Dict{Tuple{Int,Int,Int}, RatPoly}()
+    max_denom_per_k = Dict{Int, DenomSig}()
     n_nonzero_kd = 0
     n_nonzero_kdp = 0
 
     for k in 1:n_eqs
         for d in 1:n_h
-            # Stage 1: probe h_d=1, others=0
             sub_h = copy(sub_zero_h)
             sub_h[h_terms[d]] = Num(1)
             intermediate = Symbolics.substitute(eqs_corr[k], sub_h)
             isequal(intermediate, Num(0)) && continue
             n_nonzero_kd += 1
 
-            # Stage 2: for each H-parameter p, probe H_p=1, others=0
             for p in 1:n_H
                 sub_H = copy(sub_zero_H)
                 sub_H[Symbolics.unwrap(H_param_syms[p])] = Num(1)
@@ -934,29 +941,58 @@ function extract_sgb_correction_symbolic_a(; P::Int=3, Q::Int=1, S::Int=1,
                 isequal(c_expr, Num(0)) && continue
                 n_nonzero_kdp += 1
 
-                # Convert to RatPoly with symbolic a (NO numerical substitution)
                 rp = symexpr_to_poly(c_expr, ctx)
+                rp_reduced = reduce_ratpoly(rp, ctx)
+                c_kdp_reduced[(k, d, p)] = rp_reduced
 
-                # Clear denominators
-                poly, _ = clear_denominators(rp, P, Q, S, ctx)
-
-                # Split by a-exponent
-                per_a = _split_poly_by_var(poly, 6)
-
-                c_kdp_all[(k, d, p)] = per_a
+                prev = get(max_denom_per_k, k, DenomSig())
+                den  = rp_reduced.den
+                max_denom_per_k[k] = DenomSig(
+                    max(prev.p, den.p), max(prev.q, den.q),
+                    max(prev.s, den.s), max(prev.t, den.t))
             end
         end
 
         if verbose && k % 2 == 0
             elapsed = time() - t_start
-            @printf("    eq %d/%d: %d (k,d) pairs, %d (k,d,p) triples, %.1fs\n",
+            @printf("    eq %d/%d (pass 1): %d (k,d), %d (k,d,p), %.1fs\n",
                     k, n_eqs, n_nonzero_kd, n_nonzero_kdp, elapsed)
             flush(stdout)
         end
     end
 
-    verbose && (@printf("  Extraction: %d non-zero (k,d,p) triples in %.1fs\n",
-                        n_nonzero_kdp, time() - t_start); flush(stdout))
+    # Ensure each equation clears at least to the requested (P, Q, S)
+    for k in keys(max_denom_per_k)
+        d = max_denom_per_k[k]
+        max_denom_per_k[k] = DenomSig(max(d.p, P), max(d.q, Q), max(d.s, S), d.t)
+    end
+
+    if verbose
+        @printf("  Pass 1 done: %d triples, %.1fs\n", n_nonzero_kdp, time() - t_start)
+        for k in sort(collect(keys(max_denom_per_k)))
+            d = max_denom_per_k[k]
+            @printf("    eq %d: clear to Σ^%d Δ^%d (1-χ²)^%d r^%d\n",
+                    k, d.p, d.q, d.s, d.t)
+        end
+        flush(stdout)
+    end
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # Pass 2: Clear every (d,p) for equation k to the SAME max powers.
+    #         Then split by a-exponent as before.
+    # ═══════════════════════════════════════════════════════════════════════
+
+    c_kdp_all = Dict{Tuple{Int,Int,Int}, Dict{Int, SparsePoly}}()
+    t_pass2 = time()
+
+    for ((k, d, p), rp_reduced) in c_kdp_reduced
+        poly = clear_to(rp_reduced, max_denom_per_k[k], ctx)
+        cleanup!(poly)
+        c_kdp_all[(k, d, p)] = _split_poly_by_var(poly, 6)
+    end
+
+    verbose && (@printf("  Pass 2 done: uniform clearing, %.1fs\n",
+                        time() - t_pass2); flush(stdout))
 
     # Collect all a-exponents
     all_a_orders = Set{Int}()
@@ -990,7 +1026,30 @@ function extract_sgb_correction_symbolic_a(; P::Int=3, Q::Int=1, S::Int=1,
         flush(stdout)
     end
 
-    return c_kdp_per_a, a_powers
+    return c_kdp_per_a, a_powers, max_denom_per_k
+end
+
+"""
+    sgb_clearing_targets(; verbose=false) → (P, Q, S)
+
+Compute the global clearing targets that cover both GR and sGB equations.
+
+The perturbation theory D̃⁽⁰⁾ + ζ·D̃⁽¹⁾ requires both matrices to use the
+same denominator clearing.  This function extracts the sGB correction
+denominators (slow, ~85 s) and returns the element-wise maximum across
+all equations, floored at the GR defaults (P=3, Q=1, S=1).
+
+Pass the returned (P, Q, S) to both `build_system_bespoke_sgb` and
+`build_sgb_Dtilde1` to ensure matching clearing.
+"""
+function sgb_clearing_targets(; verbose::Bool=false)
+    _, _, max_denom = extract_sgb_correction_symbolic_a(; verbose)
+    P = maximum(d.p for d in values(max_denom))
+    Q = maximum(d.q for d in values(max_denom))
+    S = maximum(d.s for d in values(max_denom))
+    verbose && (@printf("  Global clearing targets: P=%d Q=%d S=%d\n", P, Q, S);
+                flush(stdout))
+    return P, Q, S
 end
 
 """
@@ -1019,7 +1078,7 @@ function build_sgb_Dtilde1(a::Float64, N::Int, m::Int;
 
     # Step 1: Extract c_{k,d,p} per-a-order (symbolic a)
     verbose && (println("Phase 1: Extracting sGB correction coefficients..."); flush(stdout))
-    c_kdp_per_a, c_a_powers = extract_sgb_correction_symbolic_a(; P, Q, S, verbose)
+    c_kdp_per_a, c_a_powers, _ = extract_sgb_correction_symbolic_a(; P, Q, S, verbose)
 
     # Step 2: Load H_p per-a-order from Mathematica
     verbose && (println("\nPhase 2: Loading H_i per-a-order..."); flush(stdout))
