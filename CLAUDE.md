@@ -43,6 +43,19 @@ the real problem. The correct approach is symbolic.
 handle it (100-155M char blowup). Therefore SparsePoly must be extended.
 This is the work. Do not avoid it.
 
+### 7. QUADRATURE-BASED INNER PRODUCTS FOR RATIONAL COEFFICIENTS
+**What**: Using Gauss-Chebyshev × Gauss-Legendre (or any numerical quadrature) to
+evaluate weighted inner products ⟨T_n P_l | G / Σ^p | T_n' P_l'⟩.
+**Why forbidden**: The current assembly achieves 219/220 digit accuracy because it
+uses exact algebraic operators (sparse matrices encoding recurrence relations).
+Quadrature discards this algebraic exactness for ~15 digits at best. It is a
+numerical hack that avoids the real work: extending the algebraic operator
+infrastructure to handle rational multiplication (1/Σ^p, 1/Δ^q, 1/(1-χ²)^s) as
+exact sparse matrix operations on spectral coefficients.
+**The correct approach**: Σ, Δ, (1-χ²) are low-degree polynomials with known
+spectral multiplication matrices M_Σ, M_Δ. "Multiply by 1/Σ^p" = solve
+(M_Σ)^p · x = b. Banded, O(N), exact to machine precision. Extend the CAS.
+
 ---
 
 ## MANDATORY APPROACH — THE ONLY CORRECT PATH

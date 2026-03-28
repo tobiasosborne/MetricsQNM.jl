@@ -237,6 +237,48 @@ end
 #  r → z transform via binomial expansion
 # ═══════════════════════════════════════════════════════════════════════════════
 
+"""
+    _r_to_z_per_eq(K_r, rp, d_max_per_eq::Vector{Int}) → PDECoefficients
+
+Per-equation variant: each equation k uses d_max_per_eq[k] in the
+(1+z)^{d_max} multiplication.  This is required when D̃⁰ and D̃¹ use
+per-equation matched clearing (different equations clear to different
+Σ^p Δ^q levels, producing different natural r-degrees).
+"""
+function _r_to_z_per_eq(K_r::PDECoefficients, rp::Float64, d_max_per_eq::Vector{Int})
+    global_d_max = maximum(d_max_per_eq)
+    K_z = PDECoefficients([Dict{NTuple{6,Int}, ComplexF64}() for _ in 1:10],
+                          copy(d_max_per_eq), fill(20, 10))
+    for k in 1:10
+        dm = d_max_per_eq[k]
+        binom = [Float64(binomial(big(n), big(j))) for n in 0:(2*dm+5), j in 0:(2*dm+5)]
+        for ((γ, δ, σ, α, β, j), G_val) in K_r.equations[k]
+            if δ >= 0
+                δ > dm && continue
+                coeff = (2rp)^δ * G_val
+                for jz in 0:(dm - δ)
+                    K_val = coeff * binom[dm - δ + 1, jz + 1]
+                    abs(K_val) < 1e-15 && continue
+                    key = (0, jz, σ, α, β, j)
+                    K_z.equations[k][key] = get(K_z.equations[k], key, 0.0im) + K_val
+                end
+            else
+                abs_δ = -δ
+                deg = dm + abs_δ
+                coeff = G_val / (2rp)^abs_δ
+                for jz in 0:deg
+                    bcoeff = Float64(binomial(big(deg), big(jz)))
+                    K_val = coeff * bcoeff
+                    abs(K_val) < 1e-15 && continue
+                    key = (0, jz, σ, α, β, j)
+                    K_z.equations[k][key] = get(K_z.equations[k], key, 0.0im) + K_val
+                end
+            end
+        end
+    end
+    return K_z
+end
+
 function _r_to_z(K_r::PDECoefficients, rp::Float64, d_max::Int)
     K_z = PDECoefficients([Dict{NTuple{6,Int}, ComplexF64}() for _ in 1:10],
                           fill(d_max, 10), fill(20, 10))
@@ -581,6 +623,7 @@ Returns a dict mapping a-exponent → (K₀, K₁, K₂) in r-space, plus sorted
 Each per-a-order K has moderate r-degree (~5-10, not ~24).
 """
 function extract_G_bespoke_symbolic_a(; P::Int=3, Q::Int=1, S::Int=1,
+                                       per_eq_clearing::Union{Nothing, Dict{Int,DenomSig}}=nothing,
                                        verbose::Bool=false)
     verbose && (println("  Computing field equations..."); flush(stdout))
     eqs, coords, params, hfuncs, freq_vars = compute_field_equations(2)
@@ -649,7 +692,13 @@ function extract_G_bespoke_symbolic_a(; P::Int=3, Q::Int=1, S::Int=1,
         end
 
         # Clear denominators (Σ^P Δ^Q (1-χ²)^S absorbed into numerator)
-        poly, _ = clear_denominators(rp, P, Q, S, ctx)
+        # If per-equation clearing targets provided, use equation k's target
+        if per_eq_clearing !== nothing && haskey(per_eq_clearing, k)
+            ds = per_eq_clearing[k]
+            poly, _ = clear_denominators(rp, ds.p, ds.q, ds.s, ctx; T=ds.t)
+        else
+            poly, _ = clear_denominators(rp, P, Q, S, ctx)
+        end
 
         # Split by a-exponent (variable 6)
         per_a = _split_poly_by_var(poly, 6)
@@ -1242,6 +1291,238 @@ function build_sgb_Dtilde1(a::Float64, N::Int, m::Int;
     verbose && (println("  D̃⁽¹⁾ assembled, normalized with D̃⁽⁰⁾ factors"); flush(stdout))
 
     return sys_corr
+end
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Matched per-equation clearing: D̃⁰ + D̃¹ with same gauge per equation
+# ═══════════════════════════════════════════════════════════════════════════════
+
+"""
+    build_matched_sgb_system(a, N, m; max_a_order=2, verbose=false)
+        → (sys_gr, sys_corr, norm_factors, matched_clearing)
+
+Build D̃⁰ (GR) and D̃¹ (sGB correction) with matched per-equation clearing.
+
+The paper clears each equation to its per-equation LCD, applied to BOTH
+GR and sGB terms. This ensures the perturbation equation
+J · x⁽¹⁾ = -D̃⁽¹⁾(ω₀)·v⁰ is gauge-consistent.
+
+Steps:
+1. Extract sGB correction denominators per equation
+2. Compute per-equation LCD = max(GR baseline, sGB denom) per eq k
+3. Extract GR coefficients with per-equation clearing (matching sGB)
+4. Build D̃⁰ with per-equation r→z transform
+5. Build D̃¹ with same per-equation r→z transform
+6. Normalize both with shared factors
+"""
+function build_matched_sgb_system(a::Float64, N::Int, m::Int;
+                                   max_a_order::Union{Nothing,Int}=2,
+                                   verbose::Bool=false)
+    rp = r_plus(a)
+
+    # ─── Step 1: Get sGB per-equation clearing targets ─────────────────
+    verbose && (println("Step 1: Extracting sGB per-equation clearing targets..."); flush(stdout))
+    t0 = time()
+    _, _, max_denom_per_k = extract_sgb_correction_symbolic_a(; P=3, Q=1, S=1, verbose)
+
+    # Per-equation matched clearing = sGB denom (always ≥ GR baseline Σ³Δ¹s¹)
+    matched_clearing = Dict{Int, DenomSig}()
+    for k in 1:10
+        ds = get(max_denom_per_k, k, DenomSig(3, 1, 1))
+        matched_clearing[k] = DenomSig(max(ds.p, 3), max(ds.q, 1), max(ds.s, 1), ds.t)
+    end
+
+    if verbose
+        @printf("  sGB clearing targets (%.1fs):\n", time() - t0)
+        for k in 1:10
+            d = matched_clearing[k]
+            @printf("    eq %2d: Σ^%d Δ^%d (1-χ²)^%d r^%d\n", k, d.p, d.q, d.s, d.t)
+        end
+        flush(stdout)
+    end
+
+    # Compute per-equation d_max from clearing levels
+    # Each Σ adds 2 r-degrees, each Δ adds 2 r-degrees
+    # Base GR r-degree before any clearing ≈ 3 (from the equation structure)
+    # After clearing: d_max_k ≈ 2*p_k + 2*q_k + base
+    # We'll compute the actual d_max from extracted coefficients below.
+
+    # ─── Step 2: Extract GR with per-equation clearing ─────────────────
+    verbose && (println("\nStep 2: Extracting GR coefficients with matched clearing..."); flush(stdout))
+    t0 = time()
+    per_a_Ks_gr, a_powers_gr = extract_G_bespoke_symbolic_a(;
+        per_eq_clearing=matched_clearing, verbose)
+    verbose && (@printf("  GR extraction: %.1fs\n", time() - t0); flush(stdout))
+
+    # Compute per-equation d_max from GR coefficients
+    d_max_per_eq = fill(0, 10)
+    for a_exp in a_powers_gr
+        K0, K1, K2 = per_a_Ks_gr[a_exp]
+        for K in (K0, K1, K2), k in 1:10
+            for ((_, δ, _, _, _, _), _) in K.equations[k]
+                d_max_per_eq[k] = max(d_max_per_eq[k], δ)
+            end
+        end
+    end
+
+    if verbose
+        println("  GR per-equation d_max:")
+        for k in 1:10
+            @printf("    eq %2d: d_max=%d\n", k, d_max_per_eq[k])
+        end
+        @printf("  Global d_max = %d\n", maximum(d_max_per_eq))
+        flush(stdout)
+    end
+
+    # ─── Step 3: Build D̃⁰ with per-equation r→z ──────────────────────
+    verbose && (println("\nStep 3: Building D̃⁰ (GR) with per-equation r→z..."); flush(stdout))
+    t0 = time()
+
+    global_d_max = maximum(d_max_per_eq)
+    basis = spectral_basis(N, m; max_delta=global_d_max + 5)  # headroom for neg δ
+    bs = basis.block_size
+
+    D0_gr = zeros(ComplexF64, 10bs, 6bs)
+    D1_gr = zeros(ComplexF64, 10bs, 6bs)
+    D2_gr = zeros(ComplexF64, 10bs, 6bs)
+
+    for a_exp in a_powers_gr
+        K0_r, K1_r, K2_r = per_a_Ks_gr[a_exp]
+
+        K0_z = _r_to_z_per_eq(K0_r, rp, d_max_per_eq)
+        K1_z = _r_to_z_per_eq(K1_r, rp, d_max_per_eq)
+        K2_z = _r_to_z_per_eq(K2_r, rp, d_max_per_eq)
+
+        D0_gr .+= a^a_exp .* assemble_system(K0_z, basis, a).D0
+        D1_gr .+= a^a_exp .* assemble_system(K1_z, basis, a).D0
+        D2_gr .+= a^a_exp .* assemble_system(K2_z, basis, a).D0
+    end
+
+    sys_gr = METRICSSystem(D0_gr, D1_gr, D2_gr, N, m, a)
+    sys_gr, norm_factors = normalize_system!(sys_gr)
+    verbose && (@printf("  D̃⁰ built and normalized. %.1fs\n", time() - t0); flush(stdout))
+
+    # ─── Step 4: Build D̃¹ with same per-equation r→z ─────────────────
+    verbose && (println("\nStep 4: Building D̃¹ (sGB correction) with matched clearing..."); flush(stdout))
+    t0 = time()
+
+    # Re-extract sGB correction with matched clearing (already have c_kdp from step 1,
+    # but build_sgb_Dtilde1 re-extracts internally — pass matched clearing targets)
+    # We call build_sgb_Dtilde1 which uses its own per-equation clearing.
+    # The d_max from sGB must use the SAME per-equation d_max as GR.
+    # We need to re-extract with the matched clearing and use _r_to_z_per_eq.
+
+    # Extract sGB correction with matched clearing
+    c_kdp_per_a, c_a_powers, _ = extract_sgb_correction_symbolic_a(;
+        P=3, Q=1, S=1, verbose)
+
+    # Load H_i per-a-order
+    H_per_order, H_a_powers = load_H_ratpolys_per_order(; verbose)
+
+    # Convolve c × H (same logic as build_sgb_Dtilde1 Phase 3)
+    eqs_tmp, _, _, _, _, _ = compute_sgb_correction_equations(2; verbose=false)
+    all_vars = Set{Any}()
+    for eq in eqs_tmp, v in Symbolics.get_variables(eq)
+        any(occursin("h$j", string(v)) for j in 1:6) && push!(all_vars, v)
+    end
+    h_terms = sort(collect(all_vars), by=string)
+    h_map = _parse_h_terms(string.(h_terms))
+
+    max_target = max_a_order !== nothing ? max_a_order :
+                 maximum(c_a_powers) + maximum(H_a_powers)
+
+    target_a_orders = Int[]
+    K_per_target = Dict{Int, Vector{PDECoefficients}}()
+
+    for target_a in 0:max_target
+        n_contributions = 0
+        for m_pow in c_a_powers
+            m_pow > target_a && continue
+            n_pow = target_a - m_pow
+            H_oi = findfirst(==(n_pow), H_a_powers)
+            H_oi === nothing && continue
+            H_order = H_per_order[H_oi]
+            c_at_m = c_kdp_per_a[m_pow]
+
+            for ((k, d, p), c_poly) in c_at_m
+                isempty(c_poly.terms) && continue
+                H_rp = H_order[p]
+                isempty(H_rp.num.terms) && continue
+                product_num = c_poly * H_rp.num
+                H_r_denom = H_rp.den.t
+
+                if !haskey(K_per_target, target_a)
+                    K_per_target[target_a] = [
+                        PDECoefficients([Dict{NTuple{6,Int}, ComplexF64}() for _ in 1:10],
+                                        fill(50, 10), fill(20, 10)) for _ in 1:3]
+                    push!(target_a_orders, target_a)
+                end
+
+                j_d, α_d, β_d = h_map[d]
+                for (exps, coeff_val) in product_num.terms
+                    abs(coeff_val) < 1e-15 && continue
+                    δ, σ, p_ω, q_ω, s_iu, _a_check = exps
+                    net_δ = δ - H_r_denom
+                    G0, G1, G2 = _omega_monomial_to_G(p_ω, q_ω, s_iu, coeff_val)
+                    for (γ, Gval) in enumerate((G0, G1, G2))
+                        abs(Gval) < 1e-15 && continue
+                        key = (γ - 1, net_δ, σ, α_d, β_d, j_d)
+                        Kγ = K_per_target[target_a][γ]
+                        Kγ.equations[k][key] = get(Kγ.equations[k], key, 0.0im) + Gval
+                    end
+                end
+                n_contributions += 1
+            end
+        end
+    end
+    sort!(target_a_orders)
+
+    # Compute sGB per-equation d_max (including negative δ from H denoms)
+    d_max_per_eq_sgb = copy(d_max_per_eq)  # start from GR matched d_max
+    for ta in target_a_orders
+        for K in K_per_target[ta], kk in 1:10
+            for ((_, δ, _, _, _, _), _) in K.equations[kk]
+                if δ >= 0
+                    d_max_per_eq_sgb[kk] = max(d_max_per_eq_sgb[kk], δ)
+                else
+                    # Negative δ expands to z-degree d_max + |δ|
+                    # Ensure d_max_per_eq covers this
+                    d_max_per_eq_sgb[kk] = max(d_max_per_eq_sgb[kk], δ)  # keep as-is; _r_to_z_per_eq handles
+                end
+            end
+        end
+    end
+
+    # For negative δ: the d_max_per_eq used in _r_to_z determines the polynomial.
+    # Must use the SAME d_max_per_eq as GR for gauge matching!
+    # The negative δ terms just produce higher z-degree = d_max + |δ|.
+
+    verbose && (println("  Assembling D̃¹ per-a-order..."); flush(stdout))
+
+    D0_corr = zeros(ComplexF64, 10bs, 6bs)
+    D1_corr = zeros(ComplexF64, 10bs, 6bs)
+    D2_corr = zeros(ComplexF64, 10bs, 6bs)
+
+    for target_a in target_a_orders
+        K0_r, K1_r, K2_r = K_per_target[target_a]
+
+        # Use SAME d_max_per_eq as GR for gauge matching
+        K0_z = _r_to_z_per_eq(K0_r, rp, d_max_per_eq)
+        K1_z = _r_to_z_per_eq(K1_r, rp, d_max_per_eq)
+        K2_z = _r_to_z_per_eq(K2_r, rp, d_max_per_eq)
+
+        D0_corr .+= a^target_a .* assemble_system(K0_z, basis, a).D0
+        D1_corr .+= a^target_a .* assemble_system(K1_z, basis, a).D0
+        D2_corr .+= a^target_a .* assemble_system(K2_z, basis, a).D0
+
+        verbose && (@printf("    a^%d: assembled\n", target_a); flush(stdout))
+    end
+
+    sys_corr = METRICSSystem(D0_corr, D1_corr, D2_corr, N, m, a)
+    normalize_system!(sys_corr, norm_factors)  # same factors as D̃⁰
+    verbose && (@printf("  D̃¹ built and normalized. %.1fs\n", time() - t0); flush(stdout))
+
+    return sys_gr, sys_corr, norm_factors, matched_clearing
 end
 
 # ═══════════════════════════════════════════════════════════════════════════════

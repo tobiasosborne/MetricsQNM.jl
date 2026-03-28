@@ -116,6 +116,74 @@ function solve_qep_newton(D0::AbstractMatrix, D1::AbstractMatrix, D2::AbstractMa
 end
 
 """
+    solve_qep_full_newton(sys, ω₀, v₀; parity=:polar, max_iter=30, tol=1e-12)
+        → (ω, v, converged)
+
+Paper's Newton-Raphson: iterate on BOTH (v, ω) simultaneously.
+Solves D̃(ω)·v = 0 with one component of v pinned for normalization.
+
+Unlike solve_qep_newton (which iterates on ω only via σ_min),
+this uses the full Jacobian J = [D̃(ω)[:,free] | D̃'(ω)·v] and
+iterates [Δv; Δω] = -J \\ D̃(ω)·v.  This converges to the specific
+mode closest to (ω₀, v₀) in the full (v,ω) space, avoiding spurious
+eigenvalues that steal σ_min-based Newton.
+"""
+function solve_qep_full_newton(sys::METRICSSystem, ω₀::Number,
+                                v₀::AbstractVector{<:Number};
+                                parity::Symbol=:polar, max_iter::Int=30,
+                                tol::Float64=1e-12, verbose::Bool=false)
+    N = sys.N
+    m = sys.m
+    bs = (N + 1)^2
+    n_v = 6 * bs
+
+    # Pin one coefficient for normalization (same as compute_jacobian)
+    pinned_k = parity == :polar ? 1 : 5
+    pinned_idx = (pinned_k - 1) * bs + nl_index(0, abs(m), N, m)
+    free_idx = setdiff(1:n_v, pinned_idx)
+
+    ω = ComplexF64(ω₀)
+    v = ComplexF64.(v₀)
+
+    # Pin normalization: v[pinned_idx] stays fixed
+    v_pinned = v[pinned_idx]
+
+    for iter in 1:max_iter
+        # Evaluate D̃(ω)·v
+        Dv = Dtilde(sys, ω) * v
+
+        # Residual (all rows — the 10×bs equations)
+        res_norm = norm(Dv)
+        rel_res = res_norm / max(norm(v), 1.0)
+
+        if verbose && (iter ≤ 5 || iter % 5 == 0)
+            @printf("    iter %2d: |D̃·v| = %.2e, |ω - ω₀| = %.2e\n",
+                    iter, rel_res, abs(ω - ω₀))
+            flush(stdout)
+        end
+
+        rel_res < tol && return (ω=ω, v=v, converged=true, iters=iter)
+
+        # Jacobian: J = [D̃(ω)[:,free] | D̃'(ω)·v]
+        D_at_ω = Dtilde(sys, ω)
+        dD_v = Dtilde_deriv(sys, ω) * v
+        J = hcat(D_at_ω[:, free_idx], dD_v)
+
+        # Newton step: [Δv_free; Δω] = -J \ D̃·v
+        step = -(J \ Dv)
+
+        # Update
+        v[free_idx] .+= step[1:end-1]
+        ω += step[end]
+        v[pinned_idx] = v_pinned  # re-pin
+    end
+
+    return (ω=ω, v=v, converged=false, iters=max_iter)
+end
+
+export solve_qep_full_newton
+
+"""
     qep_residual(sys, ω) → Float64
 
 Relative residual σ_min(D̃(ω)) / σ_max(D̃(ω)).  Values < 1e-10 indicate eigenvalue.

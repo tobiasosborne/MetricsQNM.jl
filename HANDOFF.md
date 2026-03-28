@@ -18,115 +18,158 @@ Pipeline: `compute_field_equations(2)` → symbolic linearized Ricci →
 
 ---
 
-## ⚠️ STRATEGIC DECISION: RATIONAL GALERKIN — THE ONLY PATH FORWARD ⚠️
+## ⚠️ THE PAPER'S ACTUAL ALGORITHM (2026-03-28 session findings) ⚠️
 
-### The problem we hit
+### What the paper does (arxiv:2406.11986, verbatim from source)
 
-The sGB correction equations have **rational** coefficients — denominators with
-Σ^p Δ^q (1-χ²)^s where the powers vary per H-parameter index p. Three bugs were
-found and fixed in the clearing-based approach:
+The paper's approach, established by careful reading of the source tex:
 
-1. **Bug #1:** D̃⁽¹⁾ normalization must match D̃⁽⁰⁾ (FIXED)
-2. **Bug #2:** Clearing must be uniform per equation k across all (d,p) (FIXED)
-3. **Bug #3:** D̃⁽⁰⁾ and D̃⁽¹⁾ must use the SAME clearing factor (FIXED)
+1. **Clear ALL denominators** (Σ, Δ, 1-χ²) to polynomial form for BOTH
+   GR and sGB terms together. No algebraic operators, no rational Galerkin.
+   Quote (line 962): "after factorization and multiplication through common
+   denominators"
 
-Fixing all three requires inflating clearing to P=6, Q=3, S=2 (global max across
-all equations and H-parameters). This inflates GR d_max from 9 to 18, which:
-- **Breaks Newton refinement** — spurious eigenvalues steal the basin of attraction
-- **Requires N ≥ 19** — below this the basis can't resolve d_max=18
-- **Makes full QEP impractical** — O(n³) QZ on ~5000×5000 companion at N=20
-- **Still gives |ω₁| ~ O(10³)** vs reference O(0.1) even at N=16
+2. **Divide out common prefactors** AFTER clearing — Σ^p Δ^q (1-χ²)^s
+   factors that multiply the ENTIRE equation (not individual terms).
+   Quote (line 976-978): "we divide the equations by them to simplify
+   them and improve their numerical stability."
 
-### Why clearing is fundamentally wrong for sGB
+3. **Newton-Raphson on the FULL combined system** D̃⁰(ω) + ζ·D̃¹(ω),
+   iterating on BOTH (v, ω) simultaneously. NOT σ_min Newton on ω alone.
+   Quote (line 197): "a Newton-Raphson algorithm to simultaneously solve
+   all the linear, homogeneous algebraic equations"
 
-The GR equations have denominators Σ^3 Δ^1 (1-χ²)^1 — moderate, uniform across
-all terms. Clearing these to polynomials adds d_max=9, manageable at N=12.
+4. **Scan N from 1 to 25**, select optimal N via backward modulus difference.
+   Quote (line 1302): "we compute ω⁽¹⁾ from N=1 to 25"
 
-The sGB equations have ADDITIONAL denominators from H-parameters (H1-H4 enter the
-metric with different Σ/Δ factors). Clearing these adds up to Σ^6 Δ^3 (1-χ²)^2 —
-**DOUBLE the GR clearing**. This is not a bug to fix; it's a fundamental mismatch
-between polynomial clearing and rational coefficient structure.
+5. **Per-equation clearing** — each equation cleared independently.
+   Quote (line 976): "After factorizing each of the linearized field equations"
 
-**The paper's Mathematica handles rational coefficients natively.**
-**We tried to avoid this by clearing. That path is exhausted. It does not work.**
+6. **D̃ matrices are linear in ζ** — GR and sGB assembled together.
+   Quote (line 1063): "which are all linear in ζ"
 
-### The correct approach: Rational Galerkin inner products
+### What we tried and what failed (this session)
 
-**DO NOT try to clear sGB denominators to match GR.** Instead:
+| Approach | Result | Why it failed |
+|----------|--------|---------------|
+| Independent clearing (D̃⁰ at P=3,Q=1,S=1; D̃¹ at per-eq) | |ω₁| = 1.26e8 | Gauge mismatch: pinv residual = 0.989 |
+| Matched clearing + σ_min Newton on D̃⁰ alone | Diverges to spurious ω = 120-3171i | Inflated d_max=16 creates spurious eigenvalues that steal σ_min basin |
+| Matched clearing + σ_min Newton on full D̃⁰+ζD̃¹ | All N=8..16 diverge to spurious | σ_min Newton has no eigenvector info → wrong basin |
+| Matched clearing + FULL Newton on (v,ω) jointly | **N=12: promising but stalls** | N < d_max → basis aliasing. N≥16 not yet tested |
 
-1. **Clear to GR level only** (P=3, Q=1, S=1) — same as the working GR pipeline
-2. **Track the residual denominator** per (k,d,p) as a DenomSig offset:
-   - If sGB term needs Σ^5 but GR clears Σ^3, residual = 1/Σ^2
-   - This residual is a known rational function of (r, χ)
-3. **Extend assembly to compute weighted inner products:**
-   ```
-   ⟨T_n P_l | G(r,χ,ω) / Σ^k(r,χ) | T_n' P_l'⟩
-   ```
-   instead of the current polynomial-only:
-   ```
-   ⟨T_n P_l | G(r,χ,ω) | T_n' P_l'⟩
-   ```
-4. **D̃⁽⁰⁾ and D̃⁽¹⁾ automatically match** — both use P=3,Q=1,S=1 base clearing
-5. **d_max stays at ~9** — Newton refinement works, N=12 resolves everything
-6. **No degree inflation** — the rational factor is in the integration weight, not
-   the polynomial degree
+### Key diagnostic results (2026-03-28)
 
-### How to compute weighted inner products
+**Per-equation sGB clearing targets** (irreducible — verified by probing
+1165 c_{k,d,p} triples for missed Σ/Δ cancellations: 0 missed Σ, 0 missed Δ):
 
-The denominators are products of:
-- Σ = r² + a²χ²  →  quadratic in z after r→z transform
-- Δ = r² - 2r + a²  →  quadratic in z
-- (1-χ²)  →  quadratic in χ
+```
+eq  1: Σ^6 Δ^2 (1-χ²)^1   excess over GR: +8 r-deg
+eq  2: Σ^5 Δ^3 (1-χ²)^1   excess over GR: +8 r-deg
+eq  3: Σ^5 Δ^2 (1-χ²)^2   excess over GR: +6 r-deg
+eq  4: Σ^6 Δ^2 (1-χ²)^1   excess over GR: +8 r-deg
+eq  5: Σ^5 Δ^2 (1-χ²)^1   excess over GR: +6 r-deg
+eq  6: Σ^5 Δ^2 (1-χ²)^2   excess over GR: +6 r-deg
+eq  7: Σ^6 Δ^2 (1-χ²)^1   excess over GR: +8 r-deg
+eq  8: Σ^5 Δ^2 (1-χ²)^1   excess over GR: +6 r-deg
+eq  9: Σ^6 Δ^2 (1-χ²)^1   excess over GR: +8 r-deg
+eq 10: Σ^6 Δ^2 (1-χ²)^1   excess over GR: +8 r-deg
+```
 
-For fixed (a, k, equation), 1/Σ^p is a smooth rational function on the (z,χ)
-domain. Its Chebyshev×Legendre expansion converges exponentially. Options:
+**Per-a-order d_max** (with per-equation clearing, no global inflation):
+```
+a^0: 16   a^2: 14   a^4: 12   a^6: 10   a^8:  8
+a^1: 15   a^3: 13   a^5: 11   a^7:  9   a^9:  7
+```
 
-**Option A:** High-order quadrature (Gauss-Chebyshev × Gauss-Legendre) to evaluate
-the weighted inner product to machine precision. ~100 quadrature points suffices.
-
-**Option B:** Pre-expand 1/Σ^p as a Chebyshev×Legendre series (via FFT on fine
-grid), then convolve with the polynomial inner products.
-
-**Option C:** Symbolic partial fractions of 1/Σ^p in z, then exact Chebyshev
-integrals of rational functions via residue calculus.
-
-Option A is simplest, O(N_quad × n_basis²) per equation. Pre-computed for each
-unique residual DenomSig. NOT "numerical Galerkin" in the forbidden sense — the
-coefficients c_{k,d,p} are still extracted symbolically via SparsePoly CAS. Only
-the integration step uses quadrature, which is inherently numerical anyway.
-
-### What this preserves
-
-- SparsePoly CAS with symbolic `a` — untouched
-- Per-a-order extraction and splitting — untouched
-- c × H convolution — untouched (works on RatPolys)
-- QEP/Newton eigenvalue solver — untouched
-- Perturbation theory — untouched
-- GR pipeline — completely untouched (P=3 clearing, d_max=9)
-
-### What this changes
-
-- `assembly.jl`: extend `assemble_system` to accept per-equation DenomSig residuals
-  and use weighted quadrature inner products for non-trivial residuals
-- `build_sgb_Dtilde1`: pass residual DenomSig from extraction to assembly
-- `extract_sgb_correction_symbolic_a`: return residual DenomSig per (k,d,p) instead
-  of clearing to max power
-
-### Why this was not done earlier
-
-Previous sessions tried to avoid extending the CAS/assembly infrastructure by
-using denominator clearing as a shortcut. This is explicitly blacklisted in
-CLAUDE.md rule 6: "ANY APPROACH THAT AVOIDS EXTENDING THE CAS." Clearing IS such
-an avoidance — it converts the hard problem (rational inner products) into an easy
-one (polynomial inner products) at the cost of degree inflation. The inflation is
-fatal for sGB because the extra denominators from H-parameters push clearing
-powers far beyond what the spectral basis can resolve.
-
-**This is the work. Do not avoid it.**
+**reduce_ratpoly quality**: 76/131 triples in eq 1 miss (1-χ²) cancellations,
+but (1-χ²) has zero r-degree → doesn't affect d_max. Σ and Δ cancellations:
+NONE missed. The denominators are irreducible.
 
 ---
 
-## sGB pipeline status (Source 1 only)
+## WHAT TO DO NEXT (priority order)
+
+### 1. Complete the full Newton test at N≥16
+
+**STATUS: IN PROGRESS — test running at session end (test/test_full_newton_v2.jl)**
+
+The full Newton-Raphson (`solve_qep_full_newton` in `rectangular_qep.jl`) iterates
+on (v, ω) jointly, using the Jacobian J = [D̃(ω)[:,free] | D̃'(ω)·v]. At N=12 it
+showed promising behavior (ω converging toward physical region, residual dropping
+from 4.7e-6 to 3.6e-7) but stalled because N=12 < d_max=16 → basis aliasing.
+
+**Action:** Run `test/test_full_newton_v2.jl` and examine N=16, 18, 20 results.
+If full Newton converges at N≥16, the paper's algorithm works and we're done
+with the solver question. If it still fails, investigate:
+- Is the "divide out common prefactors" step missing? (Our code doesn't do step 2)
+- Is the initial v₀ from SVD at ω_Leaver good enough?
+
+### 2. Implement "divide out common prefactors" (paper's step 2)
+
+The paper says: after clearing to LCD, the resulting polynomial equation has
+common factors of Σ^p Δ^q (1-χ²)^s that can be divided out. We DON'T do this.
+
+This could reduce d_max. The approach:
+- After clearing all (d,p) triples in equation k to the per-equation LCD
+- SUM all cleared terms for equation k
+- Test if the full sum is divisible by Σ, Δ, or (1-χ²)
+- Divide out as many common factors as possible
+
+This is DIFFERENT from our per-triple `reduce_ratpoly` (which finds no missed
+Σ/Δ cancellations). Cross-term cancellations might appear only in the sum.
+
+### 3. If Newton works: N-convergence study
+
+Scan N=8..25 for a=0.3 with backward modulus difference B(N) = |ω(N) - ω(N-1)|.
+Extract ω₁ ≈ (ω(ζ) - ω₀)/ζ at optimal N. Compare with paper Table II.
+
+### 4. Implement Sources 2-4 (after Source 1 converges)
+
+---
+
+## New code added this session
+
+### `_r_to_z_per_eq(K_r, rp, d_max_per_eq::Vector{Int})`
+**File:** `src/symbolic_pipeline.jl` (after line 240)
+Per-equation variant of `_r_to_z`. Each equation k uses its own
+`(1+z)^{d_max_per_eq[k]}` multiplication. Required for matched clearing
+where different equations have different denominator levels.
+
+### `extract_G_bespoke_symbolic_a(; per_eq_clearing=Dict{Int,DenomSig})`
+**File:** `src/symbolic_pipeline.jl` (modified)
+Added optional `per_eq_clearing` parameter. When provided, each equation k
+uses `per_eq_clearing[k]` instead of global (P,Q,S) for denominator clearing.
+
+### `build_matched_sgb_system(a, N, m; max_a_order=2, verbose=false)`
+**File:** `src/symbolic_pipeline.jl` (after `build_sgb_Dtilde1`)
+Builds D̃⁰ and D̃¹ with matched per-equation clearing. Steps:
+1. Extract sGB per-equation clearing targets (max_denom_per_k)
+2. Extract GR coefficients with per-equation clearing matching sGB
+3. Build D̃⁰ with `_r_to_z_per_eq`
+4. Build D̃¹ with same `_r_to_z_per_eq` (same d_max_per_eq)
+5. Normalize both with shared factors
+
+### `solve_qep_full_newton(sys, ω₀, v₀; parity, max_iter, tol, verbose)`
+**File:** `src/rectangular_qep.jl` (after `solve_qep_newton`)
+The paper's Newton-Raphson: iterates on (v, ω) jointly.
+Uses Jacobian J = [D̃(ω)[:,free] | D̃'(ω)·v], solves J\(D̃·v) each step.
+Converges to the mode nearest (v₀, ω₀) in the full (v,ω) space,
+avoiding spurious eigenvalue basins that plague σ_min Newton.
+
+---
+
+## Test scripts added this session
+
+- `test/diagnose_clearing.jl` — Per-equation denominator diagnostic (90s)
+- `test/diagnose_reduce.jl` — reduce_ratpoly cancellation quality test (130s)
+- `test/test_independent_clearing.jl` — Independent clearing test (FAILED: gauge mismatch)
+- `test/test_matched_clearing.jl` — Matched clearing + σ_min Newton (FAILED: spurious eigenvalues)
+- `test/test_full_newton.jl` — σ_min Newton on full D̃⁰+ζD̃¹ (FAILED: all N diverge)
+- `test/test_full_newton_v2.jl` — Full Newton on (v,ω) (**IN PROGRESS — check N≥16**)
+
+---
+
+## sGB pipeline status (Source 1 only, updated 2026-03-28)
 
 | Step | Function | Status |
 |------|----------|--------|
@@ -135,105 +178,64 @@ powers far beyond what the spectral basis can resolve.
 | GR per-a-order assembly | `build_system_bespoke_sgb` | DONE, 13.1 digits |
 | sGB c_{k,d,p} extraction | `extract_sgb_correction_symbolic_a` | DONE (two-pass uniform) |
 | c × H convolution per-a-order | `build_sgb_Dtilde1` | DONE (norm fixed) |
-| **Rational Galerkin assembly** | `assemble_system` extension | **NOT STARTED — THE BLOCKER** |
+| Per-equation matched clearing | `build_matched_sgb_system` | DONE (new this session) |
+| Per-equation r→z transform | `_r_to_z_per_eq` | DONE (new this session) |
+| Full Newton-Raphson (v,ω) | `solve_qep_full_newton` | DONE (new this session) |
+| **Full Newton at N≥16** | test_full_newton_v2.jl | **IN PROGRESS — THE BLOCKER** |
+| Divide-out common prefactors | not implemented | NEXT if Newton stalls |
 | _r_to_z with negative δ | `_r_to_z` extended | DONE |
 | Eigenvalue perturbation | `solve_sgb_perturbation` | DONE (code correct) |
 
 ---
 
-## Bugs found and fixed (2026-03-26)
+## Solver strategies (ranked)
 
-### Bug #1: Normalization mismatch (FIXED)
-D̃⁽¹⁾ used independent normalization instead of GR norm factors.
-**Files:** `src/symbolic_pipeline.jl`, `test/convergence_sgb_N.jl`
+1. **Full Newton on (v,ω)** (`solve_qep_full_newton`) — paper's algorithm.
+   Iterates on both eigenvector and eigenvalue. Robust to spurious eigenvalues.
+   **USE THIS.** Test at N≥16 with matched clearing.
 
-### Bug #2: Inconsistent denominator clearing per (k,d,p) (FIXED)
-Two-pass approach: collect max denom per equation k, clear uniformly.
-**Files:** `src/symbolic_pipeline.jl` (extraction refactored)
-**Beads:** MetricsQNM.jl-wwy
+2. **σ_min Newton** (`solve_qep_newton`) — iterates on ω only.
+   Works for GR (d_max=9, few spurious eigenvalues). FAILS for sGB with
+   matched clearing (d_max=16, spurious eigenvalues steal basin).
 
-### Bug #3: Clearing mismatch D̃⁽⁰⁾ vs D̃⁽¹⁾ (FIXED but superseded)
-Added `sgb_clearing_targets()` returning global max P=6,Q=3,S=2.
-**This fix is correct but causes d_max inflation (9→18). It will be
-replaced by rational Galerkin inner products, which eliminate the
-need for matched clearing entirely.**
+3. **Full QEP** (`solve_qep_svd`) — finds ALL eigenvalues. O(n³).
+   Too slow for N≥16. Only for validation at small N.
 
----
-
-## QEP solver: use Newton, not full QEP
-
-Research in `../af-tests/examples13/` established:
-
-- **Full QEP** (SVD compress + companion QZ) finds ALL eigenvalues — O(n³), ~16min at N=20
-- **Newton on σ_min** (`solve_qep_newton`) refines ONE eigenvalue — O(k·mn²), ~seconds
-- We already have Leaver ω₀ as initial guess → Newton converges in ~10 iterations
-- `solve_qep_newton` is already implemented in `src/rectangular_qep.jl:90-116`
-- Eigenvector v₀ comes from the SVD at convergence: `v₀ = V[:, end]`
-
-**Use Newton for production. Full QEP only for validation at small N.**
-
-Newton diverges with P=6 clearing (spurious eigenvalues from d_max=18).
-With rational Galerkin (d_max=9), Newton will work as designed.
+4. **Eigenvalue perturbation** (`solve_sgb_perturbation`) — single linear solve.
+   REQUIRES D̃⁰ and D̃¹ in same gauge. Works only if D̃⁰ eigenvalue is found
+   first (circular dependency with matched clearing).
 
 ---
 
-## Reference implementation findings
-
-The Supplementary_materials.nb contains **NO CODE** — only pre-computed data:
-- Φ (scalar field), H1-H4 (metric corrections) as series in a up to a^40
-- Ω_H⁽¹⁾, κ⁽¹⁾ as polynomials in a
-
-The actual METRICS solver is private Mathematica code (UIUC, not published).
-
-Key facts:
-1. Paper uses Newton-Raphson, not QEP — our Newton is equivalent
-2. Paper keeps rational coefficients natively — we must do the same
-3. Same N for both GR and sGB — same spectral basis
-4. ω₁ via pinv(J) · source — single linear solve
-5. Full system is 11×7 blocks (10 Einstein + 1 scalar, 6 metric + 1 scalar)
-6. Paper does NOT decompose into Source 1-4 — all assembled together
-
----
-
-## What to do next (priority order)
-
-1. **Implement rational Galerkin inner products** — THE BLOCKER
-   - Extend `assemble_system` to accept per-equation DenomSig residuals
-   - Use quadrature (Gauss-Chebyshev × Gauss-Legendre) for weighted integrals
-   - Validate: GR with residual DenomSig(0,0,0,0) must reproduce current results
-
-2. **Rewire sGB pipeline** to use rational assembly
-   - `extract_sgb_correction_symbolic_a`: clear to P=3,Q=1,S=1 only, return residual
-   - `build_sgb_Dtilde1`: pass residual to assembly
-   - Remove `sgb_clearing_targets()` — no longer needed
-
-3. **N-convergence with rational Galerkin** — should converge at N=12-16
-   - Newton refinement from Leaver (no full QEP needed)
-   - |ω₁| should be O(0.1) if extraction is correct
-
-4. **Implement Sources 2-4** (after Source 1 converges)
-
----
-
-## Key function signatures
+## Key function signatures (updated)
 
 ```julia
 # GR pipeline (working, unchanged)
 sys, nf = build_system_bespoke(a, N, m)
-ω₀ = solve_qep_newton(sys, ω_L)  # or solve_qep_with_vectors for validation
-J, free, pinned = compute_jacobian(sys, ω, v)
+ω₀ = solve_qep_newton(sys, ω_L)
 
-# GR per-a-order (verified)
-sys, nf, disc = build_system_bespoke_sgb(a, N, m; verify=true, verbose=true)
+# Matched sGB system (NEW)
+sys_gr, sys_corr, nf, matched = build_matched_sgb_system(a, N, m;
+    max_a_order=2, verbose=true)
 
-# sGB extraction (two-pass uniform clearing, returns residual denoms)
-c_kdp, a_powers, max_denom = extract_sgb_correction_symbolic_a(; verbose=true)
+# Combined system for full Newton
+sys_full = METRICSSystem(
+    sys_gr.D0 .+ ζ .* sys_corr.D0,
+    sys_gr.D1 .+ ζ .* sys_corr.D1,
+    sys_gr.D2 .+ ζ .* sys_corr.D2, N, m, a)
 
-# sGB D̃⁽¹⁾ assembly (norm_factors required)
-sys_corr = build_sgb_Dtilde1(a, N, m; norm_factors=nf, max_a_order=2, verbose=true)
+# Initial (v₀, ω₀) from SVD at Leaver frequency
+P_init = Dtilde(sys_full, ω_leaver)
+v_init = conj(svd(P_init).Vt[end, :])
 
-# Eigenvalue perturbation
-ω1 = solve_sgb_perturbation(sys_corr, ω0, v0, J)
+# Full Newton-Raphson (paper's algorithm)
+result = solve_qep_full_newton(sys_full, ω_leaver, v_init;
+    parity=:polar, max_iter=30, tol=1e-12, verbose=true)
+ω_sGB = result.ω
+ω₁ = (ω_sGB - ω_leaver) / ζ
+
+# Leaver reference
+ω_L = leaver_qnm(a; s=-2, l=2, m=2, n=0)
 
 # sGB background
 H_per_order, a_powers = load_H_ratpolys_per_order(; verbose=true)
@@ -244,6 +246,6 @@ H_per_order, a_powers = load_H_ratpolys_per_order(; verbose=true)
 - `M = 1` everywhere. Table values are `ωM` (dimensionless).
 - Use `--threads=8` for Julia. More threads cause OpenBLAS contention.
 - TensorGR.jl at `../TensorGR.jl` — read-only dependency.
-- Newton over full QEP for single eigenvalues. Full QEP only for validation.
+- **Follow the paper's algorithm. Not following the paper is heresy.**
 - See CLAUDE.md for blacklisted approaches and mandatory rules.
 - **3 subagents before core code changes, reviewer after. No exceptions.**
